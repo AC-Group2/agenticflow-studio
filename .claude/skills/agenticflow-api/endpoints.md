@@ -74,7 +74,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | PATCH | `/sip-trunk/{trunkId}` | [Update a SIP Trunk](https://docs.agenticflow.studio/api-reference/sip-trunk/update-a-sip-trunk.md) |
 | DELETE | `/sip-trunk/{trunkId}/credentials` | [Clear SIP Trunk Credentials](https://docs.agenticflow.studio/api-reference/sip-trunk/clear-sip-trunk-credentials.md) |
 
-## Call (5 endpoints)
+## Call (6 endpoints)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -83,6 +83,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | DELETE | `/call/{callId}` | [Delete Call](https://docs.agenticflow.studio/api-reference/call/delete-call.md) |
 | GET | `/call/{callId}` | [Get Call](https://docs.agenticflow.studio/api-reference/call/get-call.md) |
 | PATCH | `/call/{callId}` | [Update Call](https://docs.agenticflow.studio/api-reference/call/update-call.md) |
+| GET | `/call/{callId}/logs` | [Get Call Log Archive](https://docs.agenticflow.studio/api-reference/call/get-call-log-archive.md) |
 
 ## Monitor (5 endpoints)
 

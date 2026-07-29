@@ -2871,7 +2871,10 @@ paths:
             - pipeline-error-llm-failed
             - system-error
             - agent-init-failed
+            - assistant-request-failed
+            - fallback-destination
             - ringing-timeout
+            - no-answer
             - call-forwarded
             - human-takeover
             - human-ended-call
@@ -2879,6 +2882,12 @@ paths:
             - outbound-sip-unavailable
             - outbound-sip-rejected
             - outbound-init-failed
+            - insufficient-balance
+            - balance-exhausted
+            - billing-suspended
+            - billing-misconfigured
+            - concurrency-cap-exceeded
+            - tier-not-allowed
             - unknown
             type: string
           - type: 'null'
@@ -3324,6 +3333,142 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '404':
           description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /call/{callId}/logs:
+    get:
+      tags:
+      - Call
+      summary: Get Call Log Archive
+      description: "Return the sanitized log stream for a call.\n\nThe same feed the dashboard's Logs tab renders, as JSON.\n\
+        \nArchive-only: records are available once the call has ended and\nthe post-call worker has flushed the permanent\
+        \ archive. The\nresponse carries one of four ``source`` states:\n\n  * ``pending`` — call not yet ended or archive\
+        \ still being\n    prepared; clients poll until it flips.\n  * ``archive`` — records loaded from the archive and sanitized.\n\
+        \  * ``expired`` — archive deleted per the assistant's data\n    retention policy.\n  * ``unavailable`` — archive\
+        \ is missing or unreadable.\n\nLogs are stored raw for forensic integrity; sanitization runs on\nread. Provider SDK\
+        \ spam and HTTP client internals are dropped;\ninternal scope ids, private IPs, storage URLs, bearer tokens, and\n\
+        vendor names are redacted. Filters can only narrow the query,\nnever broaden it.\n\nRate limited per API key / user\
+        \ — see the ``X-RateLimit-*``\nresponse headers."
+      operationId: getCallLogs
+      parameters:
+      - name: callId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: ID of the call.
+          title: Callid
+        description: ID of the call.
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - API
+            - Agent
+            - Tools
+            - Knowledge Base
+            - Lifecycle
+            - Post-Processing
+            - Media Server
+            - Telephony
+            - System
+            type: string
+          - type: 'null'
+          description: Filter by logical category.
+          title: Category
+        description: Filter by logical category.
+      - name: level
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - debug
+            - info
+            - warning
+            - error
+            - critical
+            type: string
+          - type: 'null'
+          description: Filter by log severity.
+          title: Level
+        description: Filter by log severity.
+      - name: event_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by event type (e.g. ``agent_state_changed``).
+          title: Event Type
+        description: Filter by event type (e.g. ``agent_state_changed``).
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          description: Free-text substring match against the log line.
+          title: Search
+        description: Free-text substring match against the log line.
+      - name: limit
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 10000
+            minimum: 1
+          - type: 'null'
+          description: Maximum log lines to return (1-10000, default 5000).
+          title: Limit
+        description: Maximum log lines to return (1-10000, default 5000).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_CallLogsResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Too many requests — rate limit exceeded.
           content:
             application/json:
               schema:
@@ -4051,6 +4196,12 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '404':
           description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Too many requests — rate limit exceeded.
           content:
             application/json:
               schema:
@@ -13872,6 +14023,7 @@ components:
             - pipeline-error-llm-failed
             - system-error
             - agent-init-failed
+            - assistant-request-failed
             - fallback-destination
             - ringing-timeout
             - no-answer
@@ -16969,6 +17121,7 @@ components:
             - pipeline-error-llm-failed
             - system-error
             - agent-init-failed
+            - assistant-request-failed
             - fallback-destination
             - ringing-timeout
             - no-answer
@@ -21543,7 +21696,7 @@ components:
         function:
           $ref: '#/components/schemas/FunctionDefinition-Output'
         server:
-          $ref: '#/components/schemas/src__api__schemas__tool__ServerConfigInfo'
+          $ref: '#/components/schemas/ServerConfigInfo'
         asyncMode:
           type: boolean
           title: Asyncmode
@@ -21811,6 +21964,7 @@ components:
           type: string
           enum:
           - gemini-3.5-flash
+          - gemini-3.5-flash-lite
           - gemini-3-flash-preview
           - gemini-3.1-flash-lite-preview
           - gemini-2.5-flash
@@ -24788,6 +24942,9 @@ components:
         model:
           type: string
           enum:
+          - gpt-5.6-terra
+          - gpt-5.6-luna
+          - gpt-5.6-sol
           - gpt-5.4-mini
           - gpt-5.4-nano
           - gpt-5.4
@@ -24844,6 +25001,7 @@ components:
           anyOf:
           - type: string
             enum:
+            - minimal
             - low
             - medium
             - high
@@ -24880,6 +25038,8 @@ components:
           anyOf:
           - type: string
             enum:
+            - gpt-realtime-2.1
+            - gpt-realtime-2.1-mini
             - gpt-realtime-2
             - gpt-realtime-1.5
             - gpt-realtime
@@ -24955,11 +25115,11 @@ components:
             - xhigh
           - type: 'null'
           title: Reasoningeffort
-          description: Reasoning effort for ``gpt-realtime-2`` (the only model that honours this field). ``minimal`` for single-turn
-            yes/no, ``low`` (default) for everyday support, ``medium`` for tool dispatch / disambiguation, ``high`` for multi-step
-            reasoning, ``xhigh`` for hard analytical questions. Higher levels trade latency for depth — start with ``low``
-            and tune up if the agent needs more deliberation. Silently ignored on non-reasoning models (gpt-realtime / 1.5
-            / mini).
+          description: Reasoning effort for the ``gpt-realtime-2`` generation (2.1, 2.1-mini, 2 — the only models that honour
+            this field). ``minimal`` for single-turn yes/no, ``low`` (default) for everyday support, ``medium`` for tool dispatch
+            / disambiguation, ``high`` for multi-step reasoning, ``xhigh`` for hard analytical questions. Higher levels trade
+            latency for depth — start with ``low`` and tune up if the agent needs more deliberation. Silently ignored on non-reasoning
+            models (gpt-realtime / 1.5 / mini).
       additionalProperties: false
       type: object
       required:
@@ -27084,7 +27244,7 @@ components:
           title: Webhookevents
         server:
           anyOf:
-          - $ref: '#/components/schemas/ServerConfigInfo'
+          - $ref: '#/components/schemas/src__api__schemas__assistant__ServerConfigInfo'
           - type: 'null'
         analysis:
           anyOf:
@@ -28471,7 +28631,7 @@ components:
           title: Webhookevents
         server:
           anyOf:
-          - $ref: '#/components/schemas/ServerConfigInfo'
+          - $ref: '#/components/schemas/src__api__schemas__assistant__ServerConfigInfo'
           - type: 'null'
         analysis:
           anyOf:
@@ -28649,7 +28809,22 @@ components:
           - type: string
           - type: 'null'
           title: Prompt
-          description: Optional transcription prompt / biasing hint.
+          description: Optional transcription prompt / biasing hint — free text for the gpt-4o-transcribe family (e.g. domain
+            vocabulary and proper nouns), a keyword list for whisper-1. NOT supported by ``gpt-realtime-whisper``.
+        delay:
+          anyOf:
+          - type: string
+            enum:
+            - minimal
+            - low
+            - medium
+            - high
+            - xhigh
+          - type: 'null'
+          title: Delay
+          description: Latency/accuracy tradeoff for ``gpt-realtime-whisper`` only. Higher levels give the model more audio
+            context before emitting the transcript, which can lower word error rate; it delays the TRANSCRIPT only, never
+            the conversation (the realtime model hears the caller directly). Leave unset for the provider default.
       additionalProperties: false
       type: object
       required:
@@ -28670,7 +28845,7 @@ components:
 
         silently missing from the transcript. For **direct OpenAI**, it''s a model
 
-        id (e.g. ``gpt-4o-transcribe`` / ``gpt-4o-mini-transcribe`` / ``whisper-1``).
+        id (see :data:`TRANSCRIPTION_MODELS`).
 
         Leave unset to use the default (``gpt-4o-mini-transcribe``).'
     RealtimeUsageRecord:
@@ -29389,9 +29564,7 @@ components:
     ServerConfigInfo:
       properties:
         url:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
           title: Url
         secret:
           anyOf:
@@ -29402,9 +29575,16 @@ components:
           type: integer
           title: Timeoutseconds
           default: 20
+        headers:
+          additionalProperties: true
+          type: object
+          title: Headers
+      additionalProperties: false
       type: object
+      required:
+      - url
       title: ServerConfigInfo
-      description: Webhook server config — response shape.
+      description: Tool webhook config — response shape.
     ServerConfigSchema:
       properties:
         url:
@@ -31985,7 +32165,7 @@ components:
           title: Destinations
         server:
           anyOf:
-          - $ref: '#/components/schemas/src__api__schemas__tool__ServerConfigInfo'
+          - $ref: '#/components/schemas/ServerConfigInfo'
           - type: 'null'
         function:
           anyOf:
@@ -34191,6 +34371,25 @@ components:
       - voiceId
       title: XaiTTS
       description: xAI Grok TTS — 5 static voices.
+    src__api__schemas__assistant__ServerConfigInfo:
+      properties:
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        secret:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Secret
+        timeoutSeconds:
+          type: integer
+          title: Timeoutseconds
+          default: 20
+      type: object
+      title: ServerConfigInfo
+      description: Webhook server config — response shape.
     src__api__schemas__messaging__extensions__TypingRequest:
       properties:
         durationSeconds:
@@ -34202,30 +34401,6 @@ components:
       additionalProperties: false
       type: object
       title: TypingRequest
-    src__api__schemas__tool__ServerConfigInfo:
-      properties:
-        url:
-          type: string
-          title: Url
-        secret:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Secret
-        timeoutSeconds:
-          type: integer
-          title: Timeoutseconds
-          default: 20
-        headers:
-          additionalProperties: true
-          type: object
-          title: Headers
-      additionalProperties: false
-      type: object
-      required:
-      - url
-      title: ServerConfigInfo
-      description: Tool webhook config — response shape.
   securitySchemes:
     apiKeyAuth:
       type: apiKey
