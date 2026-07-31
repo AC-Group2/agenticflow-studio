@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **166 REST endpoints + 5 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-07-29).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **167 REST endpoints + 5 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-07-31).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -15,7 +15,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 ## Finding the right endpoint
 
-1. **[endpoints.md](endpoints.md)** — all 166 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
+1. **[endpoints.md](endpoints.md)** — all 167 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
 2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.1 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
 3. **Live doc index:** https://docs.agenticflow.studio/llms.txt lists every doc page including guides (messaging billing/quickstart, SIP trunk setup/troubleshooting, widget identity/installation, changelog).
 
@@ -25,7 +25,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 |---|---|---|
 | Assistant | 8 | CRUD + version history/snapshots |
 | Tool | 8 | CRUD + versions; function tools call their own `server.url` |
-| Call | 6 | Create/list/get/update/delete calls + sanitized log archive |
+| Call | 7 | Create/list/get/update/delete calls + live mid-call agent update + sanitized log archive |
 | Monitor | 5 | Live-call listen/takeover tokens, control messages |
 | Phone Number | 5 | Provision (Twilio or BYO SIP), routing, lifecycle |
 | SIP Trunk | 6 | Gateways, digest auth, REGISTER mode, credential clearing |
@@ -35,6 +35,17 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 | Folders | 5 | Organize resources by `resourceType` |
 | Messaging | 67 | Channels, WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
 | Widget – Admin | 35 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
+
+## Live mid-call agent update — `PATCH /call/{callId}/agent`
+
+Changes a *running* assistant's instructions and/or tools while the caller is still on the line — same connection, same conversation, **not** a transfer/handoff. Typical use: switch language or mode mid-call instead of carrying every variant in one long base prompt.
+
+- At least one of `instructions` / `tools` is required.
+- `instructions` + `mode`: `replace` (default) swaps the assistant's instructions for the rest of the call; `append` layers the text on top of the configured prompt, which stays in force.
+- `tools` **replaces the whole active set** — resend any tool you want to keep, send `[]` to run with none. Knowledge-base search tools are always retained regardless of what's sent, since they follow the assistant's linked KBs, not this list.
+- Returns `200` once the running agent confirms the change; `202` if it was dispatched but not confirmed within the ack window (may still land — check the call timeline via `activeToolNames`/`requestId` on the response, or the call's event log).
+- Returns `409` if the call isn't in progress, or if the assistant's model doesn't support live updates.
+- Applying a change may require reconnecting to the upstream model (~1s, `reconnected: true` in the response) — the caller's audio leg itself is unaffected.
 
 ## Call log archive — `GET /call/{callId}/logs`
 
@@ -62,3 +73,4 @@ Subscribe via `assistant.webhookEvents`. Five events: `assistant-request` (pre-c
 - Sending free-form WhatsApp messages outside the 24h window — pre-flight with the window-check endpoint or use a template.
 - Deletes are mostly **soft**-deletes (assistants, tools, KBs, chat sessions, widgets); template deletion on Meta is **irreversible**.
 - Treating `GET /call/{callId}/logs` as live-streaming — it is archive-only. Während des Calls kommt `source: pending` zurück; für Live-Monitoring stattdessen die Monitor-Endpunkte nutzen.
+- `PATCH /call/{callId}/agent`: `tools` additiv senden statt des kompletten gewünschten Sets — das Feld **ersetzt** die aktive Toolliste vollständig (Ausnahme: KB-Search-Tools bleiben immer erhalten).

@@ -3479,6 +3479,103 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /call/{callId}/agent:
+    patch:
+      tags:
+      - Call
+      summary: Update a Live Call's Instructions or Tools
+      description: 'Change a running assistant''s system instructions and/or tools mid-call.
+
+
+        The call continues on the same connection with the same conversation —
+
+        this is **not** a transfer and not a handoff to another assistant. The
+
+        new behaviour applies from the assistant''s next turn.
+
+
+        Typical use is a language or mode switch: keep a lean base prompt and
+
+        push a specialised instruction block only when the caller needs it,
+
+        instead of carrying every variant in one long prompt.
+
+
+        Both fields are optional but at least one is required. ``tools``
+
+        **replaces** the active set — resend any tools you want to keep.
+
+        Knowledge-base search tools are always retained.
+
+
+        Returns ``200`` once the running agent confirms the change, or ``202``
+
+        if it was dispatched but not confirmed within the ack window (it may
+
+        still land — check the call timeline). Returns ``409`` when the call
+
+        is not in progress, or when the assistant''s model does not support
+
+        live updates.'
+      operationId: updateLiveCallAgent
+      parameters:
+      - name: callId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: ID of the in-progress call to update.
+          title: Callid
+        description: ID of the in-progress call to update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LiveAgentUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_LiveAgentUpdateResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Conflict — resource state prevents the requested change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Unprocessable entity — semantic validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /chat/session:
     post:
       tags:
@@ -7309,7 +7406,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/src__api__schemas__messaging__extensions__TypingRequest'
+              $ref: '#/components/schemas/TypingRequest'
       responses:
         '200':
           description: Successful Response
@@ -12190,6 +12287,32 @@ components:
       - data
       - message
       title: ApiEnvelope[ListenTokenResponse]
+    ApiEnvelope_LiveAgentUpdateResponse_:
+      properties:
+        statusCode:
+          type: integer
+          title: Statuscode
+          description: HTTP status code (mirrors the response status).
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/LiveAgentUpdateResponse'
+          - type: 'null'
+          description: Response payload.
+        message:
+          type: string
+          title: Message
+          description: Human-readable status message.
+        success:
+          type: boolean
+          title: Success
+          description: Always ``true`` for this envelope.
+          default: true
+      type: object
+      required:
+      - statusCode
+      - data
+      - message
+      title: ApiEnvelope[LiveAgentUpdateResponse]
     ApiEnvelope_MediaUploadResponse_:
       properties:
         statusCode:
@@ -23541,6 +23664,86 @@ components:
       - expiresInSeconds
       title: ListenTokenResponse
       description: Listen-only access token for live-call monitoring.
+    LiveAgentUpdateRequest:
+      properties:
+        instructions:
+          anyOf:
+          - type: string
+            maxLength: 100000
+          - type: 'null'
+          title: Instructions
+          description: New system instructions. With ``mode=replace`` (default) these become the assistant's instructions
+            for the rest of the call; with ``mode=append`` they are layered on top of the configured prompt, which stays in
+            force.
+        mode:
+          type: string
+          enum:
+          - replace
+          - append
+          title: Mode
+          description: How ``instructions`` combine with the assistant's configured prompt.
+          default: replace
+        tools:
+          anyOf:
+          - items: {}
+            type: array
+            maxItems: 100
+          - type: 'null'
+          title: Tools
+          description: Replaces the active tool set wholesale. Entries are either saved tool IDs or inline tool definitions
+            — the same mixed shape an assistant's ``tools`` array accepts. Omit the field to leave tools untouched; send ``[]``
+            to run with none. Knowledge-base search tools are always retained, since they follow the assistant's linked knowledge
+            bases rather than this list.
+      additionalProperties: false
+      type: object
+      title: LiveAgentUpdateRequest
+      description: 'Replace the running agent''s instructions and/or tools mid-call.
+
+
+        Applies to the call already in progress — same caller leg, same
+
+        conversation, no transfer and no handoff. The change takes effect from
+
+        the assistant''s next turn.
+
+
+        At least one of ``instructions`` / ``tools`` must be supplied.'
+    LiveAgentUpdateResponse:
+      properties:
+        applied:
+          type: boolean
+          title: Applied
+          description: '``true`` when the running agent confirmed the change. ``false`` with HTTP 202 means it was dispatched
+            but not confirmed in time.'
+        reconnected:
+          type: boolean
+          title: Reconnected
+          description: Whether applying the change required re-establishing the upstream model connection (~1s). The caller's
+            audio leg is never affected.
+        mechanism:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mechanism
+          description: 'How it was applied: ``pipeline``, ``in_place`` or ``reconnect``.'
+        activeToolNames:
+          items:
+            type: string
+          type: array
+          title: Activetoolnames
+          description: Tools available to the assistant after the update.
+        requestId:
+          type: string
+          title: Requestid
+          description: Correlation id, also recorded on the call timeline.
+      additionalProperties: false
+      type: object
+      required:
+      - applied
+      - reconnected
+      - requestId
+      title: LiveAgentUpdateResponse
+      description: Outcome of a mid-call agent update.
     LiveEscalateConfig:
       properties:
         briefingPrompt:
@@ -24854,12 +25057,21 @@ components:
           - type: string
           - type: 'null'
           title: Callerid
-          description: Caller ID override.
+          description: Calling number presented to the destination. **Warm mode only** — a warm transfer places a NEW outbound
+            call, so this becomes its ``From`` user. Blind modes send a SIP REFER, which creates no new leg and carries the
+            original caller's ``From`` unchanged, so this field is ignored there. Supports ``{{variable}}`` substitution (e.g.
+            ``{{customer.number}}`` to present the original caller's number).
         numberE164CheckEnabled:
           type: boolean
           title: Numbere164Checkenabled
           description: Validate that ``number`` is E.164 before placing the call.
           default: true
+        sipHeaders:
+          additionalProperties: true
+          type: object
+          title: Sipheaders
+          description: Custom SIP headers sent with the transfer — on the ``REFER`` in blind modes, on the outbound ``INVITE``
+            in warm mode. Values support ``{{variable}}`` substitution resolved at transfer time (e.g. ``{{customer.number}}``).
         message:
           anyOf:
           - type: string
@@ -29811,7 +30023,8 @@ components:
           additionalProperties: true
           type: object
           title: Sipheaders
-          description: Custom SIP headers to include on the INVITE.
+          description: Custom SIP headers sent with the transfer — on the ``REFER`` in blind modes. Values support ``{{variable}}``
+            substitution resolved at transfer time (e.g. ``{{customer.number}}``).
         message:
           anyOf:
           - type: string
@@ -32581,6 +32794,17 @@ components:
       - id
       - number
       title: TwilioPhoneNumberResponse
+    TypingRequest:
+      properties:
+        durationSeconds:
+          type: integer
+          maximum: 25.0
+          minimum: 1.0
+          title: Durationseconds
+          default: 5
+      additionalProperties: false
+      type: object
+      title: TypingRequest
     UltravoxRealtime:
       properties:
         provider:
@@ -34390,17 +34614,6 @@ components:
       type: object
       title: ServerConfigInfo
       description: Webhook server config — response shape.
-    src__api__schemas__messaging__extensions__TypingRequest:
-      properties:
-        durationSeconds:
-          type: integer
-          maximum: 25.0
-          minimum: 1.0
-          title: Durationseconds
-          default: 5
-      additionalProperties: false
-      type: object
-      title: TypingRequest
   securitySchemes:
     apiKeyAuth:
       type: apiKey
