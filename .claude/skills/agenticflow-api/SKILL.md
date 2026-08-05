@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **167 REST endpoints + 5 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-07-31).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **171 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-08-05).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -15,7 +15,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 ## Finding the right endpoint
 
-1. **[endpoints.md](endpoints.md)** — all 167 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
+1. **[endpoints.md](endpoints.md)** — all 171 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
 2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.1 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
 3. **Live doc index:** https://docs.agenticflow.studio/llms.txt lists every doc page including guides (messaging billing/quickstart, SIP trunk setup/troubleshooting, widget identity/installation, changelog).
 
@@ -33,6 +33,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 | File | 4 | Upload/list/get/delete knowledge-base documents |
 | Knowledge Base | 8 | CRUD + sources + re-sync |
 | Folders | 5 | Organize resources by `resourceType` |
+| Billing - Invoices | 4 | List/get invoices, download frozen JSON package, admin-only manual mark-paid |
 | Messaging | 67 | Channels, WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
 | Widget – Admin | 35 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
 
@@ -64,7 +65,20 @@ Logs werden roh gespeichert (forensische Integrität), die Sanitization läuft b
 
 ## Outbound webhooks (platform → your server)
 
-Subscribe via `assistant.webhookEvents`. Five events: `assistant-request` (pre-call, must answer within 7s), `status-update` (call lifecycle), `transcript` (partial/final chunks), `end-of-call-report` (the key post-call event — transcript, recording, analysis), `tool-function-call` (per LLM tool invocation, sync or async). Details: see the Webhooks section in [endpoints.md](endpoints.md) and https://docs.agenticflow.studio/api-reference/webhooks/overview.md
+Call webhooks subscribe via `assistant.webhookEvents`. Five events: `assistant-request` (pre-call, must answer within 7s), `status-update` (call lifecycle), `transcript` (partial/final chunks), `end-of-call-report` (the key post-call event — transcript, recording, analysis), `tool-function-call` (per LLM tool invocation, sync or async).
+
+12 more events cover chat sessions, messaging channels, and widgets (`chat-message`, `chat-session-status-update`, `chat-session-end-report`, `messaging-message-received`/`-status-changed`/`-failed`, `messaging-reaction-added`/`-removed`, `messaging-contact-opted-in`/`-out`, `widget-message-incoming`, `widget-audit-event`) — these are configured per-channel or per-widget (e.g. `PATCH /messaging/channels/{channel_id}`, the `/widget/admin/widgets/{widget_id}/audit-webhook-endpoints` CRUD), not via `assistant.webhookEvents`.
+
+Full list: see the Webhooks section in [endpoints.md](endpoints.md) and https://docs.agenticflow.studio/api-reference/webhooks/overview.md
+
+## Mark invoice paid — `POST /billing/invoices/{invoice_id}/mark-paid`
+
+For **manual-contract (off-Stripe) invoices only** — records a payment that landed outside Stripe and triggers the same ledger credit a Stripe `invoice.paid` webhook would. **Idempotent**: calling it again on an already-paid invoice just returns the unchanged record, no duplicate credit.
+
+- Body is optional: `paidAt` (defaults to now) and a free-text `note` (max 500 chars).
+- **Auth is tiered, not just "admin"**: platform admins can mark any invoice; tenant admins can mark invoices owned by their own tenant *or* by any org under that tenant (they're the merchant of record for org manual-contract billing); **org admins are blocked outright** — a 403 here usually means an org-level caller tried this.
+- Logs an `ActivityLog` row for audit.
+- Related: `GET /billing/invoices/{invoice_id}/json` returns a **frozen** snapshot (issuer/bill-to as they were when issued, not current data) as a raw, unwrapped JSON document (no `{success, data}` envelope) — meant to be saved to a file, not parsed like other responses.
 
 ## Common mistakes
 
@@ -74,3 +88,4 @@ Subscribe via `assistant.webhookEvents`. Five events: `assistant-request` (pre-c
 - Deletes are mostly **soft**-deletes (assistants, tools, KBs, chat sessions, widgets); template deletion on Meta is **irreversible**.
 - Treating `GET /call/{callId}/logs` as live-streaming — it is archive-only. Während des Calls kommt `source: pending` zurück; für Live-Monitoring stattdessen die Monitor-Endpunkte nutzen.
 - `PATCH /call/{callId}/agent`: `tools` additiv senden statt des kompletten gewünschten Sets — das Feld **ersetzt** die aktive Toolliste vollständig (Ausnahme: KB-Search-Tools bleiben immer erhalten).
+- `POST /billing/invoices/{invoice_id}/mark-paid` als Org-Admin aufrufen — schlägt mit 403 fehl; nur Platform- und Tenant-Admins dürfen manuelle Zahlungen bestätigen.
