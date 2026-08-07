@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **171 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-08-05).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **172 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-08-07).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -15,7 +15,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 ## Finding the right endpoint
 
-1. **[endpoints.md](endpoints.md)** — all 171 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
+1. **[endpoints.md](endpoints.md)** — all 172 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
 2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.1 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
 3. **Live doc index:** https://docs.agenticflow.studio/llms.txt lists every doc page including guides (messaging billing/quickstart, SIP trunk setup/troubleshooting, widget identity/installation, changelog).
 
@@ -34,7 +34,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 | Knowledge Base | 8 | CRUD + sources + re-sync |
 | Folders | 5 | Organize resources by `resourceType` |
 | Billing - Invoices | 4 | List/get invoices, download frozen JSON package, admin-only manual mark-paid |
-| Messaging | 67 | Channels, WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
+| Messaging | 68 | Channels, WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
 | Widget – Admin | 35 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
 
 ## Live mid-call agent update — `PATCH /call/{callId}/agent`
@@ -63,6 +63,14 @@ Filter (alle optional, können die Query nur **einschränken**, nie erweitern): 
 
 Logs werden roh gespeichert (forensische Integrität), die Sanitization läuft beim Lesen: Provider-SDK-Spam und HTTP-Client-Internals werden verworfen; interne Scope-IDs, private IPs, Storage-URLs, Bearer-Tokens und Vendor-Namen redigiert. Rate-Limit pro API-Key/User — siehe `X-RateLimit-*` Response-Header (429 bei Überschreitung).
 
+## Edit template — `PATCH /messaging/channels/{channel_id}/templates/{template_id}`
+
+Edits a WhatsApp template's content and resubmits it to Meta for review.
+
+- `name` and `language` are **immutable** — Meta treats them as the template's identity. To change either, create a new template instead.
+- Only templates in `approved`, `rejected` or `paused` are editable. One already `pending` (mid-review) rejects the edit with `422`, naming the current state.
+- A successful edit resets the template's status to `pending` — the async status worker flips it once Meta decides, same as a fresh `Create template` call.
+
 ## Outbound webhooks (platform → your server)
 
 Call webhooks subscribe via `assistant.webhookEvents`. Five events: `assistant-request` (pre-call, must answer within 7s), `status-update` (call lifecycle), `transcript` (partial/final chunks), `end-of-call-report` (the key post-call event — transcript, recording, analysis), `tool-function-call` (per LLM tool invocation, sync or async).
@@ -89,3 +97,4 @@ For **manual-contract (off-Stripe) invoices only** — records a payment that la
 - Treating `GET /call/{callId}/logs` as live-streaming — it is archive-only. Während des Calls kommt `source: pending` zurück; für Live-Monitoring stattdessen die Monitor-Endpunkte nutzen.
 - `PATCH /call/{callId}/agent`: `tools` additiv senden statt des kompletten gewünschten Sets — das Feld **ersetzt** die aktive Toolliste vollständig (Ausnahme: KB-Search-Tools bleiben immer erhalten).
 - `POST /billing/invoices/{invoice_id}/mark-paid` als Org-Admin aufrufen — schlägt mit 403 fehl; nur Platform- und Tenant-Admins dürfen manuelle Zahlungen bestätigen.
+- `PATCH .../templates/{template_id}` mit geändertem `name`/`language` senden, um ein Template umzubenennen — beide Felder sind unveränderlich; stattdessen ein neues Template anlegen. Ein Edit-Versuch während `pending` (in Review) scheitert mit 422.

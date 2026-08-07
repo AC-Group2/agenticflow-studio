@@ -169,7 +169,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | GET | `/chat/session/{sessionId}/logs` | [Get Chat Session Log Archive](https://docs.agenticflow.studio/api-reference/chat/get-chat-session-log-archive.md) |
 | GET | `/chat/session/{sessionId}/message` | [List messages](https://docs.agenticflow.studio/api-reference/messaging/list-messages.md) |
 
-## Messaging (67 endpoints)
+## Messaging (68 endpoints)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -191,6 +191,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | POST | `/messaging/channels/{channel_id}/templates/sync` | [Sync templates](https://docs.agenticflow.studio/api-reference/messaging/sync-templates.md) |
 | DELETE | `/messaging/channels/{channel_id}/templates/{template_id}` | [Delete template](https://docs.agenticflow.studio/api-reference/messaging/delete-template.md) |
 | GET | `/messaging/channels/{channel_id}/templates/{template_id}` | [Get a single template](https://docs.agenticflow.studio/api-reference/messaging/get-a-single-template.md) |
+| PATCH | `/messaging/channels/{channel_id}/templates/{template_id}` | Edit template |
 | POST | `/messaging/channels/{channel_id}/templates/{template_id}/preview` | [Preview template](https://docs.agenticflow.studio/api-reference/messaging/preview-template.md) |
 | POST | `/messaging/channels/{channel_id}/whatsapp/diagnose` | [Diagnose channel](https://docs.agenticflow.studio/api-reference/messaging/diagnose-channel.md) |
 | POST | `/messaging/channels/{channel_id}/whatsapp/refresh-status` | [Refresh WhatsApp status](https://docs.agenticflow.studio/api-reference/messaging/refresh-whatsapp-status.md) |
