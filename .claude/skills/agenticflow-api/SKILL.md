@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **172 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-08-07).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **172 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-08-09).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -36,6 +36,13 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 | Billing - Invoices | 4 | List/get invoices, download frozen JSON package, admin-only manual mark-paid |
 | Messaging | 68 | Channels, WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
 | Widget – Admin | 35 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
+
+## SIP trunk outbound ANI/DNIS swap — `swapOutboundAniDnis`
+
+Boolean field (default `false`) on the SIP trunk create/update schemas. When enabled, it reverses caller and destination on **outbound** calls only: the caller ID is sent as the destination (DNIS) and the dialled number as the caller (ANI) — the inverse of standard SIP. Leave it off unless the carrier explicitly requires it.
+
+- **Outbound-only**: no effect on inbound calls — those headers are built by the carrier, not by AgenticFlow.
+- Call records, transcripts and the `{{customer.number}}` variable always keep the real destination, regardless of this setting.
 
 ## Live mid-call agent update — `PATCH /call/{callId}/agent`
 
@@ -98,3 +105,4 @@ For **manual-contract (off-Stripe) invoices only** — records a payment that la
 - `PATCH /call/{callId}/agent`: `tools` additiv senden statt des kompletten gewünschten Sets — das Feld **ersetzt** die aktive Toolliste vollständig (Ausnahme: KB-Search-Tools bleiben immer erhalten).
 - `POST /billing/invoices/{invoice_id}/mark-paid` als Org-Admin aufrufen — schlägt mit 403 fehl; nur Platform- und Tenant-Admins dürfen manuelle Zahlungen bestätigen.
 - `PATCH .../templates/{template_id}` mit geändertem `name`/`language` senden, um ein Template umzubenennen — beide Felder sind unveränderlich; stattdessen ein neues Template anlegen. Ein Edit-Versuch während `pending` (in Review) scheitert mit 422.
+- `swapOutboundAniDnis` aktivieren und erwarten, dass es Inbound-Calls oder gespeicherte Call-Daten beeinflusst — es vertauscht nur SIP-Header bei Outbound-Calls; Inbound sowie Call-Records/Transcripts bleiben unverändert.

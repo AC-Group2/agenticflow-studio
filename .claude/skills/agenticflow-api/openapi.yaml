@@ -32741,6 +32741,14 @@ components:
           title: Registrationtransport
           description: 'Transport for REGISTER: udp, tcp, tls. Independent of call transport.'
           default: udp
+        swapOutboundAniDnis:
+          type: boolean
+          title: Swapoutboundanidnis
+          description: 'Reverse caller and destination on OUTBOUND calls: the caller ID is sent as the destination (DNIS)
+            and the dialled number as the caller (ANI). This is the inverse of standard SIP — leave it off unless your carrier
+            explicitly requires it. Has no effect on inbound calls: those headers are built by the carrier, not by us. Call
+            records, transcripts and the ``{{customer.number}}`` variable keep the real destination.'
+          default: false
         registrationExpirySeconds:
           anyOf:
           - type: integer
@@ -32800,6 +32808,10 @@ components:
           type: string
           title: Includeheaders
           default: x-headers
+        swapOutboundAniDnis:
+          type: boolean
+          title: Swapoutboundanidnis
+          default: false
         registrationEnabled:
           type: boolean
           title: Registrationenabled
@@ -33020,6 +33032,15 @@ components:
           - type: string
           - type: 'null'
           title: Registrationtransport
+        swapOutboundAniDnis:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Swapoutboundanidnis
+          description: 'Reverse caller and destination on OUTBOUND calls: the caller ID is sent as the destination (DNIS)
+            and the dialled number as the caller (ANI). This is the inverse of standard SIP — leave it off unless your carrier
+            explicitly requires it. Has no effect on inbound calls: those headers are built by the carrier, not by us. Call
+            records, transcripts and the ``{{customer.number}}`` variable keep the real destination.'
         registrationExpirySeconds:
           anyOf:
           - type: integer
