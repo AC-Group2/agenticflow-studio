@@ -169,7 +169,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | GET | `/chat/session/{sessionId}/logs` | [Get Chat Session Log Archive](https://docs.agenticflow.studio/api-reference/chat/get-chat-session-log-archive.md) |
 | GET | `/chat/session/{sessionId}/message` | [List messages](https://docs.agenticflow.studio/api-reference/messaging/list-messages.md) |
 
-## Messaging (68 endpoints)
+## Messaging (76 endpoints)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -186,12 +186,14 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | POST | `/messaging/channels/{channel_id}/email/refresh-status` | [Refresh email status](https://docs.agenticflow.studio/api-reference/messaging/refresh-email-status.md) |
 | GET | `/messaging/channels/{channel_id}/health` | [Get health](https://docs.agenticflow.studio/api-reference/messaging/get-health.md) |
 | POST | `/messaging/channels/{channel_id}/reconnect` | [Reconnect channel](https://docs.agenticflow.studio/api-reference/messaging/reconnect-channel.md) |
+| GET | `/messaging/channels/{channel_id}/signing-secret` | [Reveal the current outbound-webhook HMAC signing secret](https://docs.agenticflow.studio/api-reference/messaging/reveal-the-current-outbound-webhook-hmac-signing-secret.md) |
+| POST | `/messaging/channels/{channel_id}/signing-secret/rotate` | [Rotate the outbound-webhook signing secret and return the new value](https://docs.agenticflow.studio/api-reference/messaging/rotate-the-outbound-webhook-signing-secret-and-return-the-new-value.md) |
 | GET | `/messaging/channels/{channel_id}/templates` | [List templates](https://docs.agenticflow.studio/api-reference/messaging/list-templates.md) |
 | POST | `/messaging/channels/{channel_id}/templates` | [Create template](https://docs.agenticflow.studio/api-reference/messaging/create-template.md) |
 | POST | `/messaging/channels/{channel_id}/templates/sync` | [Sync templates](https://docs.agenticflow.studio/api-reference/messaging/sync-templates.md) |
 | DELETE | `/messaging/channels/{channel_id}/templates/{template_id}` | [Delete template](https://docs.agenticflow.studio/api-reference/messaging/delete-template.md) |
 | GET | `/messaging/channels/{channel_id}/templates/{template_id}` | [Get a single template](https://docs.agenticflow.studio/api-reference/messaging/get-a-single-template.md) |
-| PATCH | `/messaging/channels/{channel_id}/templates/{template_id}` | Edit template |
+| PATCH | `/messaging/channels/{channel_id}/templates/{template_id}` | [Edit template](https://docs.agenticflow.studio/api-reference/messaging/edit-template.md) |
 | POST | `/messaging/channels/{channel_id}/templates/{template_id}/preview` | [Preview template](https://docs.agenticflow.studio/api-reference/messaging/preview-template.md) |
 | POST | `/messaging/channels/{channel_id}/whatsapp/diagnose` | [Diagnose channel](https://docs.agenticflow.studio/api-reference/messaging/diagnose-channel.md) |
 | POST | `/messaging/channels/{channel_id}/whatsapp/refresh-status` | [Refresh WhatsApp status](https://docs.agenticflow.studio/api-reference/messaging/refresh-whatsapp-status.md) |
@@ -229,6 +231,12 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | POST | `/messaging/messages/{message_id}/read` | [Mark as read](https://docs.agenticflow.studio/api-reference/messaging/mark-as-read.md) |
 | POST | `/messaging/messages/{message_id}/retract` | [Retract message](https://docs.agenticflow.studio/api-reference/messaging/retract-message.md) |
 | GET | `/messaging/messages/{message_id}/status-history` | [Get status history](https://docs.agenticflow.studio/api-reference/messaging/get-status-history.md) |
+| POST | `/messaging/onboarding/email` | [Connect a Resend email channel (BYO Resend account + verified domain)](https://docs.agenticflow.studio/api-reference/messaging/connect-a-resend-email-channel-byo-resend-account-+-verified-domain.md) |
+| POST | `/messaging/onboarding/sms/twilio` | [Connect a Twilio SMS channel (BYO Twilio account)](https://docs.agenticflow.studio/api-reference/messaging/connect-a-twilio-sms-channel-byo-twilio-account.md) |
+| POST | `/messaging/onboarding/telegram` | [Connect a Telegram bot (bot token from @BotFather)](https://docs.agenticflow.studio/api-reference/messaging/connect-a-telegram-bot-bot-token-from-@botfather.md) |
+| POST | `/messaging/onboarding/whatsapp/connect-ticket` | [Mint a one-time ticket for the hosted WhatsApp connect popup](https://docs.agenticflow.studio/api-reference/messaging/mint-a-one-time-ticket-for-the-hosted-whatsapp-connect-popup.md) |
+| POST | `/messaging/onboarding/whatsapp/embedded-signup` | [Complete WhatsApp onboarding via Meta's Embedded Signup popup](https://docs.agenticflow.studio/api-reference/messaging/complete-whatsapp-onboarding-via-metas-embedded-signup-popup.md) |
+| POST | `/messaging/onboarding/whatsapp/manual` | [Connect a WhatsApp number by pasting credentials (API Setup / System User token)](https://docs.agenticflow.studio/api-reference/messaging/connect-a-whatsapp-number-by-pasting-credentials-api-setup-system-user-token.md) |
 | GET | `/messaging/opt-outs` | [List opt-outs](https://docs.agenticflow.studio/api-reference/messaging/list-opt-outs.md) |
 | POST | `/messaging/opt-outs` | [Add opt-out](https://docs.agenticflow.studio/api-reference/messaging/add-opt-out.md) |
 | GET | `/messaging/opt-outs/check` | [Check opt-out](https://docs.agenticflow.studio/api-reference/messaging/check-opt-out.md) |

@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **172 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-08-09).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **180 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-08-13).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -15,7 +15,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 ## Finding the right endpoint
 
-1. **[endpoints.md](endpoints.md)** — all 172 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
+1. **[endpoints.md](endpoints.md)** — all 180 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
 2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.1 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
 3. **Live doc index:** https://docs.agenticflow.studio/llms.txt lists every doc page including guides (messaging billing/quickstart, SIP trunk setup/troubleshooting, widget identity/installation, changelog).
 
@@ -34,7 +34,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 | Knowledge Base | 8 | CRUD + sources + re-sync |
 | Folders | 5 | Organize resources by `resourceType` |
 | Billing - Invoices | 4 | List/get invoices, download frozen JSON package, admin-only manual mark-paid |
-| Messaging | 68 | Channels, WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
+| Messaging | 76 | Channels + signing-secret rotation, onboarding (WhatsApp/Telegram/SMS/email), WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
 | Widget – Admin | 35 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
 
 ## SIP trunk outbound ANI/DNIS swap — `swapOutboundAniDnis`
@@ -86,6 +86,23 @@ Call webhooks subscribe via `assistant.webhookEvents`. Five events: `assistant-r
 
 Full list: see the Webhooks section in [endpoints.md](endpoints.md) and https://docs.agenticflow.studio/api-reference/webhooks/overview.md
 
+## Messaging channel signing secret — `GET .../signing-secret` / `POST .../signing-secret/rotate`
+
+Both endpoints share one response shape (`SigningSecretResponse`: `channelId`, `secret`, `rotatedAt`), but they behave differently:
+
+- **`GET /messaging/channels/{channel_id}/signing-secret`** — reveals the **current** secret in plaintext. Repeatable: calling it again just returns the same value (until the next rotation). Needed by headless integrations to verify the HMAC signature on outbound-webhook deliveries; requires `messaging.manage` on the channel's org (the same permission already lets the caller send as the channel and read every conversation, so this isn't a privilege escalation).
+- **`POST /messaging/channels/{channel_id}/signing-secret/rotate`** — generates a **new** secret and returns it once; the previous secret is invalidated immediately. Any consumer still verifying signatures with the old value starts failing verification the instant this returns — there's no overlap/grace window, so coordinate rotation with everyone who checks the signature before calling it.
+
+## WhatsApp onboarding — three ways to connect a number
+
+`POST /messaging/onboarding/whatsapp/...` has three distinct paths depending on who holds the credentials:
+
+- **`connect-ticket`** — mints a 10-minute single-use ticket (JWT-authenticated partner dashboard call) carrying tenant/org/user context, and returns a platform-hosted popup URL. The popup authenticates every later step with the ticket alone, then the flow finishes via `embedded-signup`. Use this to launch the hosted no-code flow, not to onboard a number directly.
+- **`embedded-signup`** — completes the Meta Embedded Signup handshake: frontend forwards the `code` (+ `wabaId`, optional `phoneNumberIds`) from `FB.login`, the API exchanges it server-side for a token, subscribes AgenticFlow's Meta App to the WABA, registers every phone, and persists one Channel per phone. Customer never sees a token (Tech Provider flow).
+- **`manual`** — customer pastes an access token + WABA id + phone number id directly (from Meta's App Dashboard → WhatsApp → API Setup, or a System User token). The only option for Meta's test number or customers who can't complete Embedded Signup. **API Setup tokens expire in 24h** — use a long-lived System User token for anything production.
+
+Other messaging onboarding endpoints (`/messaging/onboarding/telegram`, `/messaging/onboarding/sms/twilio`, `/messaging/onboarding/email`) are plain BYO-credential connects (bot token / Twilio account / Resend API key + verified sending domain) — see [endpoints.md](endpoints.md) for links.
+
 ## Mark invoice paid — `POST /billing/invoices/{invoice_id}/mark-paid`
 
 For **manual-contract (off-Stripe) invoices only** — records a payment that landed outside Stripe and triggers the same ledger credit a Stripe `invoice.paid` webhook would. **Idempotent**: calling it again on an already-paid invoice just returns the unchanged record, no duplicate credit.
@@ -106,3 +123,5 @@ For **manual-contract (off-Stripe) invoices only** — records a payment that la
 - `POST /billing/invoices/{invoice_id}/mark-paid` als Org-Admin aufrufen — schlägt mit 403 fehl; nur Platform- und Tenant-Admins dürfen manuelle Zahlungen bestätigen.
 - `PATCH .../templates/{template_id}` mit geändertem `name`/`language` senden, um ein Template umzubenennen — beide Felder sind unveränderlich; stattdessen ein neues Template anlegen. Ein Edit-Versuch während `pending` (in Review) scheitert mit 422.
 - `swapOutboundAniDnis` aktivieren und erwarten, dass es Inbound-Calls oder gespeicherte Call-Daten beeinflusst — es vertauscht nur SIP-Header bei Outbound-Calls; Inbound sowie Call-Records/Transcripts bleiben unverändert.
+- `POST .../signing-secret/rotate` aufrufen, ohne vorher alle Webhook-Consumer zu informieren — die alte Signatur wird sofort ungültig, es gibt kein Überlappungsfenster.
+- Bei WhatsApp-Onboarding ein 24h-API-Setup-Token (aus `manual`) in Produktion einsetzen statt eines langlebigen System-User-Tokens.

@@ -13,6 +13,7 @@ tags:
 - name: Call
 - name: Monitor
 - name: Messaging - Channels
+- name: Messaging - Onboarding
 - name: Messaging - Templates
 - name: Messaging - Messages
 - name: Messaging - Batches
@@ -6443,6 +6444,437 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '404':
           description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /messaging/channels/{channel_id}/signing-secret:
+    get:
+      tags:
+      - Messaging
+      - Messaging - Channels
+      summary: Reveal the current outbound-webhook HMAC signing secret
+      description: 'Return the channel''s outbound-webhook HMAC secret in plaintext.
+
+
+        Accepts an API key. A programmatic integration has to verify the
+
+        signature on the webhooks we push it, and it cannot do that without
+
+        this value — leaving it dashboard-only would force every headless
+
+        consumer to skip verification, which is strictly worse. The exposure
+
+        is bounded: the caller already holds ``messaging.manage`` on this
+
+        organization, so it can already send as the channel, read every
+
+        conversation, and disconnect it. Reading the secret for its OWN
+
+        webhooks is not an escalation beyond that.'
+      operationId: revealMessagingSigningSecret
+      parameters:
+      - name: channel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Channel Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_SigningSecretResponse_'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /messaging/channels/{channel_id}/signing-secret/rotate:
+    post:
+      tags:
+      - Messaging
+      - Messaging - Channels
+      summary: Rotate the outbound-webhook signing secret and return the new value
+      operationId: rotateMessagingSigningSecret
+      parameters:
+      - name: channel_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Channel Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_SigningSecretResponse_'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /messaging/onboarding/whatsapp/connect-ticket:
+    post:
+      tags:
+      - Messaging
+      - Messaging - Onboarding
+      summary: Mint a one-time ticket for the hosted WhatsApp connect popup
+      description: 'Mint a 10-minute single-use ticket carrying the caller''s tenant /
+
+        org / user context, and return the platform-hosted connect URL to
+
+        open in a popup. The hosted page authenticates every subsequent
+
+        step with the ticket alone.'
+      operationId: createWhatsAppConnectTicket
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhatsAppConnectTicketCreate'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_WhatsAppConnectTicketResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /messaging/onboarding/whatsapp/embedded-signup:
+    post:
+      tags:
+      - Messaging
+      - Messaging - Onboarding
+      summary: Complete WhatsApp onboarding via Meta's Embedded Signup popup
+      description: 'Finish the Embedded Signup handshake started in the browser.
+
+
+        Frontend opens Meta''s popup via ``FB.login`` and forwards the ``code`` +
+
+        ``wabaId`` (and optional ``phoneNumberIds``) here. We exchange the code,
+
+        subscribe our Meta App to the WABA, list + register every phone, and
+
+        persist one Channel per phone.'
+      operationId: onboardWhatsAppEmbeddedSignup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhatsAppEmbeddedSignupRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_list_ChannelResponse__'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Conflict — resource state prevents the requested change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /messaging/onboarding/whatsapp/manual:
+    post:
+      tags:
+      - Messaging
+      - Messaging - Onboarding
+      summary: Connect a WhatsApp number by pasting credentials (API Setup / System User token)
+      description: 'Manual WhatsApp onboarding — bypass Embedded Signup OAuth.
+
+
+        Useful for Meta''s test number (App Dashboard → WhatsApp → API Setup),
+
+        long-lived System User tokens, and customers who can''t complete
+
+        Embedded Signup. The body carries the access token + WABA id + phone
+
+        number id directly; we subscribe our App, register the phone, and
+
+        persist a Channel — same plumbing as Embedded Signup.'
+      operationId: onboardWhatsAppManual
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WhatsAppManualConnectRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_ChannelResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Conflict — resource state prevents the requested change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /messaging/onboarding/telegram:
+    post:
+      tags:
+      - Messaging
+      - Messaging - Onboarding
+      summary: Connect a Telegram bot (bot token from @BotFather)
+      operationId: onboardTelegram
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelegramOnboardRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_ChannelResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Conflict — resource state prevents the requested change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /messaging/onboarding/email:
+    post:
+      tags:
+      - Messaging
+      - Messaging - Onboarding
+      summary: Connect a Resend email channel (BYO Resend account + verified domain)
+      operationId: onboardEmail
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailOnboardRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_ChannelResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Conflict — resource state prevents the requested change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /messaging/onboarding/sms/twilio:
+    post:
+      tags:
+      - Messaging
+      - Messaging - Onboarding
+      summary: Connect a Twilio SMS channel (BYO Twilio account)
+      operationId: onboardSmsTwilio
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SmsTwilioOnboardRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_ChannelResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '409':
+          description: Conflict — resource state prevents the requested change.
           content:
             application/json:
               schema:
@@ -13990,6 +14422,32 @@ components:
       - data
       - message
       title: ApiEnvelope[SendMessageResponse]
+    ApiEnvelope_SigningSecretResponse_:
+      properties:
+        statusCode:
+          type: integer
+          title: Statuscode
+          description: HTTP status code (mirrors the response status).
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/SigningSecretResponse'
+          - type: 'null'
+          description: Response payload.
+        message:
+          type: string
+          title: Message
+          description: Human-readable status message.
+        success:
+          type: boolean
+          title: Success
+          description: Always ``true`` for this envelope.
+          default: true
+      type: object
+      required:
+      - statusCode
+      - data
+      - message
+      title: ApiEnvelope[SigningSecretResponse]
     ApiEnvelope_SipTrunkResponse_:
       properties:
         statusCode:
@@ -14224,6 +14682,32 @@ components:
       - data
       - message
       title: ApiEnvelope[WebhookDeliveryResponse]
+    ApiEnvelope_WhatsAppConnectTicketResponse_:
+      properties:
+        statusCode:
+          type: integer
+          title: Statuscode
+          description: HTTP status code (mirrors the response status).
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/WhatsAppConnectTicketResponse'
+          - type: 'null'
+          description: Response payload.
+        message:
+          type: string
+          title: Message
+          description: Human-readable status message.
+        success:
+          type: boolean
+          title: Success
+          description: Always ``true`` for this envelope.
+          default: true
+      type: object
+      required:
+      - statusCode
+      - data
+      - message
+      title: ApiEnvelope[WhatsAppConnectTicketResponse]
     ApiEnvelope_WidgetCreateResponse_:
       properties:
         statusCode:
@@ -14414,6 +14898,35 @@ components:
       - data
       - message
       title: ApiEnvelope[list[ArticleCategoryResponse]]
+    ApiEnvelope_list_ChannelResponse__:
+      properties:
+        statusCode:
+          type: integer
+          title: Statuscode
+          description: HTTP status code (mirrors the response status).
+        data:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/ChannelResponse'
+            type: array
+          - type: 'null'
+          title: Data
+          description: Response payload.
+        message:
+          type: string
+          title: Message
+          description: Human-readable status message.
+        success:
+          type: boolean
+          title: Success
+          description: Always ``true`` for this envelope.
+          default: true
+      type: object
+      required:
+      - statusCode
+      - data
+      - message
+      title: ApiEnvelope[list[ChannelResponse]]
     ApiEnvelope_list_ConsentRecordResponse__:
       properties:
         statusCode:
@@ -15591,6 +16104,11 @@ components:
           - type: number
           - type: 'null'
           title: Firstmessagefallbackseconds
+        llmRecoveryMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Llmrecoverymessage
         model:
           anyOf:
           - oneOf:
@@ -15721,6 +16239,7 @@ components:
             - $ref: '#/components/schemas/GradiumSTT'
             - $ref: '#/components/schemas/GroqSTT'
             - $ref: '#/components/schemas/MistralSTT'
+            - $ref: '#/components/schemas/MunsitSTT'
             - $ref: '#/components/schemas/NvidiaSTT'
             - $ref: '#/components/schemas/OpenAISTT'
             - $ref: '#/components/schemas/SarvamSTT'
@@ -15740,6 +16259,7 @@ components:
                 gradium-stt: '#/components/schemas/GradiumSTT'
                 groq-stt: '#/components/schemas/GroqSTT'
                 mistralai-stt: '#/components/schemas/MistralSTT'
+                munsit-stt: '#/components/schemas/MunsitSTT'
                 nvidia-stt: '#/components/schemas/NvidiaSTT'
                 openai-stt: '#/components/schemas/OpenAISTT'
                 sarvam-stt: '#/components/schemas/SarvamSTT'
@@ -15867,6 +16387,7 @@ components:
             - $ref: '#/components/schemas/GradiumSTT'
             - $ref: '#/components/schemas/GroqSTT'
             - $ref: '#/components/schemas/MistralSTT'
+            - $ref: '#/components/schemas/MunsitSTT'
             - $ref: '#/components/schemas/NvidiaSTT'
             - $ref: '#/components/schemas/OpenAISTT'
             - $ref: '#/components/schemas/SarvamSTT'
@@ -15886,6 +16407,7 @@ components:
                 gradium-stt: '#/components/schemas/GradiumSTT'
                 groq-stt: '#/components/schemas/GroqSTT'
                 mistralai-stt: '#/components/schemas/MistralSTT'
+                munsit-stt: '#/components/schemas/MunsitSTT'
                 nvidia-stt: '#/components/schemas/NvidiaSTT'
                 openai-stt: '#/components/schemas/OpenAISTT'
                 sarvam-stt: '#/components/schemas/SarvamSTT'
@@ -22102,6 +22624,58 @@ components:
       - voiceId
       title: ElevenLabs
       description: ElevenLabs TTS variant. Voices are dynamic (fetched from API).
+    EmailOnboardRequest:
+      properties:
+        resendApiKey:
+          type: string
+          minLength: 1
+          title: Resendapikey
+        fromEmail:
+          type: string
+          minLength: 3
+          title: Fromemail
+          description: The 'from' address used on outbound.
+        fromName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fromname
+        usage:
+          type: string
+          enum:
+          - inbound
+          - outbound
+          - both
+          title: Usage
+          description: 'What this channel is for. Drives the Resend webhook we create on your behalf: ''outbound'' subscribes
+            to delivery events, ''inbound'' to email.received, ''both'' to all.'
+          default: both
+        domainId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domainid
+          description: Resend domain id (optional override). When omitted we auto-resolve it from the fromEmail's domain.
+        webhookSigningSecret:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Webhooksigningsecret
+          description: Advanced override — Svix signing secret (whsec_…) for a webhook you manage yourself in Resend. Leave
+            blank and we create the webhook + capture the secret for you.
+        displayName:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Displayname
+      additionalProperties: false
+      type: object
+      required:
+      - resendApiKey
+      - fromEmail
+      - displayName
+      title: EmailOnboardRequest
+      description: Customer brings their Resend API key + sending domain.
     EmbeddingConfigInfo:
       properties:
         model:
@@ -23417,7 +23991,7 @@ components:
         function:
           $ref: '#/components/schemas/FunctionDefinition-Output'
         server:
-          $ref: '#/components/schemas/src__api__schemas__tool__ServerConfigInfo'
+          $ref: '#/components/schemas/ServerConfigInfo'
         asyncMode:
           type: boolean
           title: Asyncmode
@@ -27077,6 +27651,71 @@ components:
       - model
       title: Moonshot
       description: Moonshot Kimi LLM (pipeline mode, OpenAI-compatible).
+    MunsitSTT:
+      properties:
+        provider:
+          type: string
+          const: munsit-stt
+          title: Provider
+        model:
+          anyOf:
+          - type: string
+            enum:
+            - munsit-en-ar
+            - munsit
+          - type: 'null'
+          title: Model
+          description: Defaults to ``munsit-en-ar`` (Arabic with English code-switching). Use ``munsit`` for pure-Arabic calls
+            — it is faster and is the only model that supports hotwords.
+        language:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Language
+        endpointingMs:
+          anyOf:
+          - type: integer
+            maximum: 5000.0
+            minimum: 100.0
+          - type: 'null'
+          title: Endpointingms
+          description: Silence in milliseconds that ends a caller turn. Lower = snappier replies but more interruptions mid-sentence;
+            higher = more patient. Vendor default 800.
+        smartTurn:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Smartturn
+          description: Also require the vendor's semantic end-of-turn model to agree that the caller finished, not just silence.
+            Vendor default on.
+        interimResults:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Interimresults
+          description: Emit partial transcripts while the caller is still speaking. Vendor default on.
+        hotwords:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Hotwords
+          description: Custom vocabulary to bias recognition toward — names, products, rare terms. Up to 200 entries of up
+            to 40 characters. Requires the ``munsit`` model.
+      additionalProperties: false
+      type: object
+      required:
+      - provider
+      title: MunsitSTT
+      description: 'Munsit STT — Arabic (MSA + Gulf dialects) speech recognition.
+
+
+        Turn detection is served by the vendor: the socket ends a turn on a
+
+        silence window (``endpointingMs``) optionally gated by a semantic
+
+        end-of-turn model (``smartTurn``).'
     Munsit:
       properties:
         provider:
@@ -28570,6 +29209,13 @@ components:
             modes it acts purely as a safety net for a failed greeting. Primarily for ``assistant-waits-for-user`` assistants,
             where a silent callee (or a short utterance the model declines to answer) would otherwise leave dead air. ``null``
             (default) or ``0`` disables the fallback; otherwise 1-120 seconds.'
+        llmRecoveryMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Llmrecoverymessage
+          description: Spoken to the caller when EVERY configured engine is briefly unavailable, instead of leaving them in
+            silence. Leave unset to use the built-in line in the call's language. Repeats at most once every 20 seconds.
         tools:
           items:
             anyOf:
@@ -28907,6 +29553,7 @@ components:
             - $ref: '#/components/schemas/GradiumSTT'
             - $ref: '#/components/schemas/GroqSTT'
             - $ref: '#/components/schemas/MistralSTT'
+            - $ref: '#/components/schemas/MunsitSTT'
             - $ref: '#/components/schemas/NvidiaSTT'
             - $ref: '#/components/schemas/OpenAISTT'
             - $ref: '#/components/schemas/SarvamSTT'
@@ -28926,6 +29573,7 @@ components:
                 gradium-stt: '#/components/schemas/GradiumSTT'
                 groq-stt: '#/components/schemas/GroqSTT'
                 mistralai-stt: '#/components/schemas/MistralSTT'
+                munsit-stt: '#/components/schemas/MunsitSTT'
                 nvidia-stt: '#/components/schemas/NvidiaSTT'
                 openai-stt: '#/components/schemas/OpenAISTT'
                 sarvam-stt: '#/components/schemas/SarvamSTT'
@@ -29056,6 +29704,7 @@ components:
             - $ref: '#/components/schemas/GradiumSTT'
             - $ref: '#/components/schemas/GroqSTT'
             - $ref: '#/components/schemas/MistralSTT'
+            - $ref: '#/components/schemas/MunsitSTT'
             - $ref: '#/components/schemas/NvidiaSTT'
             - $ref: '#/components/schemas/OpenAISTT'
             - $ref: '#/components/schemas/SarvamSTT'
@@ -29075,6 +29724,7 @@ components:
                 gradium-stt: '#/components/schemas/GradiumSTT'
                 groq-stt: '#/components/schemas/GroqSTT'
                 mistralai-stt: '#/components/schemas/MistralSTT'
+                munsit-stt: '#/components/schemas/MunsitSTT'
                 nvidia-stt: '#/components/schemas/NvidiaSTT'
                 openai-stt: '#/components/schemas/OpenAISTT'
                 sarvam-stt: '#/components/schemas/SarvamSTT'
@@ -29138,6 +29788,13 @@ components:
             modes it acts purely as a safety net for a failed greeting. Primarily for ``assistant-waits-for-user`` assistants,
             where a silent callee (or a short utterance the model declines to answer) would otherwise leave dead air. ``null``
             (default) or ``0`` disables the fallback; otherwise 1-120 seconds.'
+        llmRecoveryMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Llmrecoverymessage
+          description: Spoken to the caller when EVERY configured engine is briefly unavailable, instead of leaving them in
+            silence. Leave unset to use the built-in line in the call's language. Repeats at most once every 20 seconds.
         tools:
           items:
             anyOf:
@@ -29475,6 +30132,7 @@ components:
             - $ref: '#/components/schemas/GradiumSTT'
             - $ref: '#/components/schemas/GroqSTT'
             - $ref: '#/components/schemas/MistralSTT'
+            - $ref: '#/components/schemas/MunsitSTT'
             - $ref: '#/components/schemas/NvidiaSTT'
             - $ref: '#/components/schemas/OpenAISTT'
             - $ref: '#/components/schemas/SarvamSTT'
@@ -29494,6 +30152,7 @@ components:
                 gradium-stt: '#/components/schemas/GradiumSTT'
                 groq-stt: '#/components/schemas/GroqSTT'
                 mistralai-stt: '#/components/schemas/MistralSTT'
+                munsit-stt: '#/components/schemas/MunsitSTT'
                 nvidia-stt: '#/components/schemas/NvidiaSTT'
                 openai-stt: '#/components/schemas/OpenAISTT'
                 sarvam-stt: '#/components/schemas/SarvamSTT'
@@ -29624,6 +30283,7 @@ components:
             - $ref: '#/components/schemas/GradiumSTT'
             - $ref: '#/components/schemas/GroqSTT'
             - $ref: '#/components/schemas/MistralSTT'
+            - $ref: '#/components/schemas/MunsitSTT'
             - $ref: '#/components/schemas/NvidiaSTT'
             - $ref: '#/components/schemas/OpenAISTT'
             - $ref: '#/components/schemas/SarvamSTT'
@@ -29643,6 +30303,7 @@ components:
                 gradium-stt: '#/components/schemas/GradiumSTT'
                 groq-stt: '#/components/schemas/GroqSTT'
                 mistralai-stt: '#/components/schemas/MistralSTT'
+                munsit-stt: '#/components/schemas/MunsitSTT'
                 nvidia-stt: '#/components/schemas/NvidiaSTT'
                 openai-stt: '#/components/schemas/OpenAISTT'
                 sarvam-stt: '#/components/schemas/SarvamSTT'
@@ -29703,6 +30364,11 @@ components:
           - type: number
           - type: 'null'
           title: Firstmessagefallbackseconds
+        llmRecoveryMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Llmrecoverymessage
         tools:
           items:
             anyOf:
@@ -29790,7 +30456,7 @@ components:
           title: Webhookevents
         server:
           anyOf:
-          - $ref: '#/components/schemas/ServerConfigInfo'
+          - $ref: '#/components/schemas/src__api__schemas__assistant__ServerConfigInfo'
           - type: 'null'
         analysis:
           anyOf:
@@ -30025,6 +30691,7 @@ components:
             - $ref: '#/components/schemas/GradiumSTT'
             - $ref: '#/components/schemas/GroqSTT'
             - $ref: '#/components/schemas/MistralSTT'
+            - $ref: '#/components/schemas/MunsitSTT'
             - $ref: '#/components/schemas/NvidiaSTT'
             - $ref: '#/components/schemas/OpenAISTT'
             - $ref: '#/components/schemas/SarvamSTT'
@@ -30044,6 +30711,7 @@ components:
                 gradium-stt: '#/components/schemas/GradiumSTT'
                 groq-stt: '#/components/schemas/GroqSTT'
                 mistralai-stt: '#/components/schemas/MistralSTT'
+                munsit-stt: '#/components/schemas/MunsitSTT'
                 nvidia-stt: '#/components/schemas/NvidiaSTT'
                 openai-stt: '#/components/schemas/OpenAISTT'
                 sarvam-stt: '#/components/schemas/SarvamSTT'
@@ -30168,6 +30836,7 @@ components:
             - $ref: '#/components/schemas/GradiumSTT'
             - $ref: '#/components/schemas/GroqSTT'
             - $ref: '#/components/schemas/MistralSTT'
+            - $ref: '#/components/schemas/MunsitSTT'
             - $ref: '#/components/schemas/NvidiaSTT'
             - $ref: '#/components/schemas/OpenAISTT'
             - $ref: '#/components/schemas/SarvamSTT'
@@ -30187,6 +30856,7 @@ components:
                 gradium-stt: '#/components/schemas/GradiumSTT'
                 groq-stt: '#/components/schemas/GroqSTT'
                 mistralai-stt: '#/components/schemas/MistralSTT'
+                munsit-stt: '#/components/schemas/MunsitSTT'
                 nvidia-stt: '#/components/schemas/NvidiaSTT'
                 openai-stt: '#/components/schemas/OpenAISTT'
                 sarvam-stt: '#/components/schemas/SarvamSTT'
@@ -30505,6 +31175,13 @@ components:
             modes it acts purely as a safety net for a failed greeting. Primarily for ``assistant-waits-for-user`` assistants,
             where a silent callee (or a short utterance the model declines to answer) would otherwise leave dead air. ``null``
             (default) or ``0`` disables the fallback; otherwise 1-120 seconds.'
+        llmRecoveryMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Llmrecoverymessage
+          description: Spoken to the caller when EVERY configured engine is briefly unavailable, instead of leaving them in
+            silence. Leave unset to use the built-in line in the call's language. Repeats at most once every 20 seconds.
         tools:
           items:
             anyOf:
@@ -30805,6 +31482,13 @@ components:
             modes it acts purely as a safety net for a failed greeting. Primarily for ``assistant-waits-for-user`` assistants,
             where a silent callee (or a short utterance the model declines to answer) would otherwise leave dead air. ``null``
             (default) or ``0`` disables the fallback; otherwise 1-120 seconds.'
+        llmRecoveryMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Llmrecoverymessage
+          description: Spoken to the caller when EVERY configured engine is briefly unavailable, instead of leaving them in
+            silence. Leave unset to use the built-in line in the call's language. Repeats at most once every 20 seconds.
         tools:
           items:
             anyOf:
@@ -31102,6 +31786,11 @@ components:
           - type: number
           - type: 'null'
           title: Firstmessagefallbackseconds
+        llmRecoveryMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Llmrecoverymessage
         tools:
           items:
             anyOf:
@@ -31189,7 +31878,7 @@ components:
           title: Webhookevents
         server:
           anyOf:
-          - $ref: '#/components/schemas/ServerConfigInfo'
+          - $ref: '#/components/schemas/src__api__schemas__assistant__ServerConfigInfo'
           - type: 'null'
         analysis:
           anyOf:
@@ -32307,9 +32996,7 @@ components:
     ServerConfigInfo:
       properties:
         url:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
           title: Url
         secret:
           anyOf:
@@ -32320,12 +33007,19 @@ components:
           type: integer
           title: Timeoutseconds
           default: 20
+        headers:
+          additionalProperties: true
+          type: object
+          title: Headers
+      additionalProperties: false
       type: object
+      required:
+      - url
       title: ServerConfigInfo
-      description: 'Webhook server config — response shape.
+      description: 'Tool webhook config — response shape.
 
 
-        Deliberately NOT validated: see ``ServerConfigSchema._no_internal_target``.'
+        Deliberately NOT validated: see ``ServerConfig._no_internal_target``.'
     ServerConfigSchema:
       properties:
         url:
@@ -32455,6 +33149,25 @@ components:
         referenced assistant has been edited. ``mode`` is ``"pipeline"`` for the
 
         classic three-stage pipeline or ``"realtime"`` for end-to-end audio models.'
+    SigningSecretResponse:
+      properties:
+        channelId:
+          type: string
+          title: Channelid
+        secret:
+          type: string
+          title: Secret
+          description: The full secret. Shown ONCE — store it now.
+        rotatedAt:
+          type: string
+          format: date-time
+          title: Rotatedat
+      type: object
+      required:
+      - channelId
+      - secret
+      - rotatedAt
+      title: SigningSecretResponse
     Silma:
       properties:
         provider:
@@ -33125,6 +33838,67 @@ components:
       - voiceId
       title: SmallestAI
       description: Smallest AI Waves TTS variant. Voices fetched dynamically.
+    SmsTwilioOnboardRequest:
+      properties:
+        accountSid:
+          type: string
+          minLength: 1
+          title: Accountsid
+          description: Twilio Account SID (AC…)
+        authToken:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authtoken
+          description: Account Auth Token. Required for webhook signature verification.
+        apiKeySid:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Apikeysid
+          description: Optional scoped API Key SID (SK…)
+        apiKeySecret:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Apikeysecret
+          description: Secret for the API Key.
+        messagingServiceSid:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Messagingservicesid
+          description: Recommended — Twilio Messaging Service SID (MG…). Provides sender pool + STOP keywords.
+        fromNumber:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fromnumber
+          description: Single Twilio number (E.164). Used when no Messaging Service.
+        phoneNumberSid:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Phonenumbersid
+          description: PN SID — required if you want us to set the inbound webhook on the number.
+        statusCallbackUrl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Statuscallbackurl
+          description: Override status-callback URL; defaults to our /webhook/messaging/sms/twilio/{channelId}.
+        displayName:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Displayname
+      additionalProperties: false
+      type: object
+      required:
+      - accountSid
+      - displayName
+      title: SmsTwilioOnboardRequest
+      description: Twilio account onboarding.
     SonioxSTT:
       properties:
         provider:
@@ -33688,6 +34462,24 @@ components:
       - expiresInSeconds
       title: TakeoverTokenResponse
       description: Full-participant access token for human takeover of a live call.
+    TelegramOnboardRequest:
+      properties:
+        botToken:
+          type: string
+          minLength: 1
+          title: Bottoken
+        displayName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Displayname
+          description: Defaults to the bot username returned by getMe.
+      additionalProperties: false
+      type: object
+      required:
+      - botToken
+      title: TelegramOnboardRequest
+      description: Bot token from @BotFather.
     TelephonySchema:
       properties:
         ivrDetection:
@@ -35005,7 +35797,7 @@ components:
           title: Destinations
         server:
           anyOf:
-          - $ref: '#/components/schemas/src__api__schemas__tool__ServerConfigInfo'
+          - $ref: '#/components/schemas/ServerConfigInfo'
           - type: 'null'
         function:
           anyOf:
@@ -35884,6 +36676,129 @@ components:
       - service
       title: WhatsAppCategory
       description: Meta's WhatsApp template category — analytics only (we don't bill by it).
+    WhatsAppConnectTicketCreate:
+      properties:
+        returnUrl:
+          type: string
+          maxLength: 2000
+          minLength: 8
+          title: Returnurl
+          description: Absolute https URL of the dashboard page that opened the connect popup. Used as the postMessage target
+            origin and the fallback redirect after completion.
+      additionalProperties: false
+      type: object
+      required:
+      - returnUrl
+      title: WhatsAppConnectTicketCreate
+      description: 'Body for ``POST /messaging/onboarding/whatsapp/connect-ticket``.
+
+
+        Minted by the (JWT-authenticated) partner dashboard before opening
+
+        the platform-hosted connect popup. ``returnUrl`` is where the popup
+
+        sends the user back (and the origin its completion ``postMessage``
+
+        targets) — the partner dashboard page the flow started on.'
+    WhatsAppConnectTicketResponse:
+      properties:
+        ticket:
+          type: string
+          title: Ticket
+        connectUrl:
+          type: string
+          title: Connecturl
+          description: Platform-hosted connect page URL (canonical dashboard domain, allowlisted in the Meta app). Open this
+            in a popup.
+        expiresInSeconds:
+          type: integer
+          title: Expiresinseconds
+      type: object
+      required:
+      - ticket
+      - connectUrl
+      - expiresInSeconds
+      title: WhatsAppConnectTicketResponse
+      description: Echo of the minted ticket + the fully-formed hosted-connect URL.
+    WhatsAppEmbeddedSignupRequest:
+      properties:
+        code:
+          type: string
+          minLength: 10
+          title: Code
+          description: Short-lived auth code returned by FB.login() after Embedded Signup completes.
+        wabaId:
+          type: string
+          minLength: 1
+          title: Wabaid
+          description: The WhatsApp Business Account id Meta exposes to the customer in the popup.
+        phoneNumberIds:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Phonenumberids
+          description: Optional — when supplied, only these phone numbers under the WABA are onboarded. When omitted, every
+            phone Meta returns is onboarded.
+      additionalProperties: false
+      type: object
+      required:
+      - code
+      - wabaId
+      title: WhatsAppEmbeddedSignupRequest
+      description: 'Body sent by frontend after Meta''s Embedded Signup popup completes.
+
+
+        Tech Provider flow — the customer never pastes a token. The popup yields
+
+        a short-lived auth ``code`` we exchange server-side for an access token,
+
+        then subscribe our Meta App to the chosen WABA and register every phone.'
+    WhatsAppManualConnectRequest:
+      properties:
+        accessToken:
+          type: string
+          minLength: 20
+          title: Accesstoken
+          description: WhatsApp access token (temporary from API Setup, or System User token).
+        wabaId:
+          type: string
+          minLength: 1
+          title: Wabaid
+          description: WhatsApp Business Account id the phone belongs to.
+        phoneNumberId:
+          type: string
+          minLength: 1
+          title: Phonenumberid
+          description: Phone Number id (the Cloud API id, not the E.164 number).
+        displayName:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Displayname
+          description: Optional friendly name; falls back to verified name or display number.
+      additionalProperties: false
+      type: object
+      required:
+      - accessToken
+      - wabaId
+      - phoneNumberId
+      title: WhatsAppManualConnectRequest
+      description: 'Connect a WhatsApp number by pasting credentials from Meta API Setup.
+
+
+        Bypasses Embedded Signup OAuth — caller supplies the access token, WABA
+
+        id, and phone number id directly. Use for Meta''s test number (App
+
+        Dashboard → WhatsApp → API Setup), long-lived System User tokens, or any
+
+        case where credentials are already in hand.
+
+
+        Tokens from API Setup expire in 24h; use a System User token for production.'
     WhatsAppRegisterRequest:
       properties:
         pin:
@@ -37503,10 +38418,12 @@ components:
       - voiceId
       title: XaiTTS
       description: xAI Grok TTS — 5 static voices.
-    src__api__schemas__tool__ServerConfigInfo:
+    src__api__schemas__assistant__ServerConfigInfo:
       properties:
         url:
-          type: string
+          anyOf:
+          - type: string
+          - type: 'null'
           title: Url
         secret:
           anyOf:
@@ -37517,19 +38434,12 @@ components:
           type: integer
           title: Timeoutseconds
           default: 20
-        headers:
-          additionalProperties: true
-          type: object
-          title: Headers
-      additionalProperties: false
       type: object
-      required:
-      - url
       title: ServerConfigInfo
-      description: 'Tool webhook config — response shape.
+      description: 'Webhook server config — response shape.
 
 
-        Deliberately NOT validated: see ``ServerConfig._no_internal_target``.'
+        Deliberately NOT validated: see ``ServerConfigSchema._no_internal_target``.'
   securitySchemes:
     apiKeyAuth:
       type: apiKey
