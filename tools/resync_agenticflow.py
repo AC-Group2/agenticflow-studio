@@ -25,8 +25,13 @@ try:
 except ImportError:
     sys.exit("PyYAML fehlt — bitte 'pip install pyyaml' ausführen.")
 
-SPEC_URL = "https://docs.agenticflow.studio/api-reference/openapi.yaml"
-INDEX_URL = "https://docs.agenticflow.studio/llms.txt"
+BASE_URL = "https://docs.agenticflow.studio"
+# Since the 2026-09-17 docs migration there is no standalone openapi.yaml anymore.
+# Every single operation page embeds the *complete*, merged OpenAPI document (all
+# tags, not just its own) inside a Next.js RSC payload, so any stable operation
+# page works as an anchor to pull the full spec from.
+SPEC_ANCHOR_URL = f"{BASE_URL}/docs/api-reference/voice/assistants/listAssistants"
+INDEX_URL = f"{BASE_URL}/llms.txt"
 SKILL_DIR = pathlib.Path(__file__).resolve().parent.parent / ".claude/skills/agenticflow-api"
 METHODS = ("get", "post", "put", "patch", "delete")
 
@@ -42,6 +47,70 @@ def fetch(url: str) -> str:
     return res.stdout
 
 
+def extract_bundled_spec(html: str) -> dict:
+    """Pull the embedded `"bundled": {openapi: ...}` spec out of a doc page's RSC payload.
+
+    The page ships it as a JSON value inside a JS string literal
+    (`self.__next_f.push([1, "...escaped..."])`), so we locate the enclosing
+    string, undo one layer of JSON-string escaping, then brace-match the
+    `bundled` object out of the result.
+    """
+    marker = r'\"bundled\":{\"openapi\"'
+    idx = html.find(marker)
+    if idx == -1:
+        sys.exit(
+            "Konnte das eingebettete OpenAPI-Bundle nicht in der Doku-Seite finden "
+            "— hat sich das Seitenformat erneut geändert?"
+        )
+    script_open = '<script>self.__next_f.push([1,"'
+    start_script = html.rfind(script_open, 0, idx)
+    end_script = html.find('"])</script>', idx)
+    if start_script == -1 or end_script == -1:
+        sys.exit("Konnte das umschließende Script-Tag des OpenAPI-Bundles nicht abgrenzen.")
+    raw_js_string = html[start_script + len(script_open):end_script]
+    try:
+        unescaped = json.loads('"' + raw_js_string + '"')
+    except json.JSONDecodeError as exc:
+        sys.exit(f"Konnte den Seiteninhalt nicht als JSON-String dekodieren: {exc}")
+
+    bidx = unescaped.find('"bundled":{"openapi"')
+    start = unescaped.find("{", bidx)
+    depth, in_str, esc, i = 0, False, False, start
+    while i < len(unescaped):
+        c = unescaped[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+        else:
+            if c == '"':
+                in_str = True
+            elif c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+                if depth == 0:
+                    i += 1
+                    break
+        i += 1
+    return json.loads(unescaped[start:i])
+
+
+def fetch_spec_yaml(url: str) -> str:
+    spec = extract_bundled_spec(fetch(url))
+    return yaml.dump(spec, default_flow_style=False, sort_keys=False, allow_unicode=True, width=1000)
+
+
+def build_title2url(index_text: str) -> dict:
+    return {
+        m.group(1).strip().lower(): BASE_URL + m.group(2)
+        for m in re.finditer(r"- \[(.*?)\]\((/docs/api-reference/[^)]+)\)", index_text)
+    }
+
+
 def operations(spec: dict) -> set:
     return {
         (method.upper(), path)
@@ -51,15 +120,7 @@ def operations(spec: dict) -> set:
     }
 
 
-def render_endpoints(spec: dict, index_text: str) -> str:
-    title2url = {
-        m.group(1).strip().lower(): m.group(2)
-        for m in re.finditer(
-            r"- \[(.*?)\]\((https://docs\.agenticflow\.studio/api-reference/[^)]+)\)",
-            index_text,
-        )
-    }
-
+def render_endpoints(spec: dict, title2url: dict) -> str:
     by_tag = collections.OrderedDict()
     for path, ops in spec["paths"].items():
         for method, op in ops.items():
@@ -74,8 +135,9 @@ def render_endpoints(spec: dict, index_text: str) -> str:
         "# AgenticFlow API — Complete Endpoint Reference\n",
         "Base URL: `https://api.agenticflow.studio` — Auth: `X-Api-Key: <workspace key>` header on every request.\n",
         "Full request/response schemas: grep `openapi.yaml` in this skill directory for the path "
-        '(e.g. `grep -n "  /assistant:" openapi.yaml`). Linked `.md` pages return clean markdown '
-        "when fetched with curl/WebFetch.\n",
+        '(e.g. `grep -n "  /assistant:" openapi.yaml`). Linked pages are rendered HTML; fetch '
+        "`https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) "
+        "instead of the linked URL to get clean markdown via curl/WebFetch.\n",
     ]
 
     tag_order = [t["name"] for t in spec.get("tags", [])]
@@ -98,7 +160,7 @@ def render_endpoints(spec: dict, index_text: str) -> str:
         out.append(
             "Platform → your server. Subscribe via `assistant.webhookEvents`; function-tool calls "
             "go to the tool's own `server.url`. Overview: "
-            "https://docs.agenticflow.studio/api-reference/webhooks/overview.md\n"
+            f"{BASE_URL}/docs/api-reference/webhook-events\n"
         )
         out.append("| Event | Summary |")
         out.append("|---|---|")
@@ -121,13 +183,15 @@ def main() -> int:
     if not spec_path.exists():
         sys.exit(f"Snapshot nicht gefunden: {spec_path}")
 
-    raw_new = fetch(SPEC_URL)
+    raw_new = fetch_spec_yaml(SPEC_ANCHOR_URL)
     with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as fh:
         fh.write(raw_new)
         tmp = fh.name
 
     new_spec = yaml.safe_load(open(tmp))
     old_spec = yaml.safe_load(open(spec_path))
+    index_text = fetch(INDEX_URL)
+    title2url = build_title2url(index_text)
 
     old_ops, new_ops = operations(old_spec), operations(new_spec)
     added, removed = sorted(new_ops - old_ops), sorted(old_ops - new_ops)
@@ -143,8 +207,7 @@ def main() -> int:
                 "path": p,
                 "summary": new_spec["paths"][p][m.lower()].get("summary", ""),
                 "tag": (new_spec["paths"][p][m.lower()].get("tags") or ["?"])[0],
-                "doc_slug": re.sub(r"[^a-z0-9]+", "-",
-                                   (new_spec["paths"][p][m.lower()].get("summary") or "").lower()).strip("-"),
+                "doc_url": title2url.get((new_spec["paths"][p][m.lower()].get("summary") or "").lower()),
             }
             for m, p in added
         ],
@@ -157,7 +220,7 @@ def main() -> int:
 
     if not args.check:
         spec_path.write_text(raw_new)
-        (SKILL_DIR / "endpoints.md").write_text(render_endpoints(new_spec, fetch(INDEX_URL)))
+        (SKILL_DIR / "endpoints.md").write_text(render_endpoints(new_spec, title2url))
         print(f"\ngeschrieben: {spec_path.name}, endpoints.md", file=sys.stderr)
 
     return 10 if (added or removed or wh_added or wh_removed) else 0

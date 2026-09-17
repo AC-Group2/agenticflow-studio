@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **180 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/api-reference (2026-08-13).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **214 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-09-17).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -15,8 +15,8 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 ## Finding the right endpoint
 
-1. **[endpoints.md](endpoints.md)** — all 180 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page (`.md` URLs return clean markdown via curl/WebFetch).
-2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.1 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
+1. **[endpoints.md](endpoints.md)** — all 214 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page; fetch `https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) instead of the linked URL to get clean markdown via curl/WebFetch.
+2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.2 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
 3. **Live doc index:** https://docs.agenticflow.studio/llms.txt lists every doc page including guides (messaging billing/quickstart, SIP trunk setup/troubleshooting, widget identity/installation, changelog).
 
 ## API categories (endpoint counts)
@@ -36,6 +36,14 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 | Billing - Invoices | 4 | List/get invoices, download frozen JSON package, admin-only manual mark-paid |
 | Messaging | 76 | Channels + signing-secret rotation, onboarding (WhatsApp/Telegram/SMS/email), WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
 | Widget – Admin | 35 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
+| Audio Asset | 4 | CRUD for the org's background-sound / audio library, incl. built-in system sounds |
+| Management - Organizations | 8 | CRUD for organizations under a tenant + per-org API-key issue/list/revoke |
+| Management - Tenant Overview | 3 | Cross-org tenant status/usage rollups and workflow counts |
+| Billing - Plans | 5 | Org plan catalog, assignment, assignment preview, pricing-policy lookup |
+| Billing - Plan Switch | 1 | Switch an organization's plan |
+| Billing - Status | 2 | Suspend/reactivate an organization |
+| Billing - Reports | 9 | Ledger balance/transactions/usage (JSON, CSV, live) per org and per tenant |
+| Billing - Revenue v2 | 2 | Tenant revenue KPI summary and full dashboard |
 
 ## SIP trunk outbound ANI/DNIS swap — `swapOutboundAniDnis`
 
@@ -84,7 +92,7 @@ Call webhooks subscribe via `assistant.webhookEvents`. Five events: `assistant-r
 
 12 more events cover chat sessions, messaging channels, and widgets (`chat-message`, `chat-session-status-update`, `chat-session-end-report`, `messaging-message-received`/`-status-changed`/`-failed`, `messaging-reaction-added`/`-removed`, `messaging-contact-opted-in`/`-out`, `widget-message-incoming`, `widget-audit-event`) — these are configured per-channel or per-widget (e.g. `PATCH /messaging/channels/{channel_id}`, the `/widget/admin/widgets/{widget_id}/audit-webhook-endpoints` CRUD), not via `assistant.webhookEvents`.
 
-Full list: see the Webhooks section in [endpoints.md](endpoints.md) and https://docs.agenticflow.studio/api-reference/webhooks/overview.md
+Full list: see the Webhooks section in [endpoints.md](endpoints.md) and https://docs.agenticflow.studio/docs/api-reference/webhook-events
 
 ## Messaging channel signing secret — `GET .../signing-secret` / `POST .../signing-secret/rotate`
 
@@ -112,6 +120,30 @@ For **manual-contract (off-Stripe) invoices only** — records a payment that la
 - Logs an `ActivityLog` row for audit.
 - Related: `GET /billing/invoices/{invoice_id}/json` returns a **frozen** snapshot (issuer/bill-to as they were when issued, not current data) as a raw, unwrapped JSON document (no `{success, data}` envelope) — meant to be saved to a file, not parsed like other responses.
 
+## Audio assets — `/audio-asset`
+
+Org-owned background-sound library, plus platform built-ins.
+
+- **`isSystem: true` sounds are undeletable** (`403`) and always sort first in `GET /audio-asset`. Every org can use them; nobody can delete them.
+- **Delete is soft**: the stored object stays (versioned bucket, 30-day recycle bin). Repeated upload/delete cycles accumulate objects — there's no per-org quota today.
+- **`DELETE` is blocked (`409`, naming the assistants) only while a SAVED assistant** references the asset as its background sound. An `assetId` passed ad-hoc via `POST /call` `overrides.backgroundSound` (or an inline ephemeral assistant) is invisible to `referenceCount` — deleting an asset used only that way succeeds, and those calls silently run without ambience (`Background audio asset unavailable` in the log) instead of failing.
+- **Upload dedupes by content hash**: re-uploading identical bytes returns the existing asset rather than creating a copy. Every upload is decoded twice (structure + the exact call-playback path), so a file that's accepted is guaranteed playable.
+
+## Tenant/org usage — `/usage` vs `/usage/live`
+
+Both `GET /billing/{orgs,tenants}/{id}/usage` and the `/usage/live` sibling report usage aggregates, but from different sources:
+
+- **`/usage`** (and its `/usage/csv` export) is aggregator-backed — pre-rolled, daily. Use it for finance reports and CSV exports, not for "what's my balance right now."
+- **`/usage/live`** reads `ledger_transactions` directly, reflecting the last-second debit. Use it for a live-updating dashboard panel.
+
+## Tenant overview & workflow summaries — `null` means unavailable, not zero
+
+`GET /management/tenant/overview`, `.../organizations/{org_id}/workflows/summary` and `.../tenant/workflows/summary` all distinguish "counted zero" from "couldn't count":
+
+- A `null` workflow count (with `available: false`) means Workflows isn't configured for that deployment or the workflow engine couldn't be reached — **not** that the org has zero flows. Zero is reported as an actual `0`.
+- `getTenantOverview` carries a `warnings` array — read it before treating the response as complete; a section that failed to build reports `null` there and says why.
+- `getTenantWorkflowSummary`'s `totals` sums only the organizations it could count: when `countedCount < organizationCount`, `totals` is a **floor**, not the true total, and uncounted orgs show as `null` in the per-org map. `truncated: true` means the tenant has more orgs than fit in one response — again a floor, not silently dropped.
+
 ## Common mistakes
 
 - Guessing field names from memory instead of grepping `openapi.yaml` — schemas here are the source of truth.
@@ -125,3 +157,8 @@ For **manual-contract (off-Stripe) invoices only** — records a payment that la
 - `swapOutboundAniDnis` aktivieren und erwarten, dass es Inbound-Calls oder gespeicherte Call-Daten beeinflusst — es vertauscht nur SIP-Header bei Outbound-Calls; Inbound sowie Call-Records/Transcripts bleiben unverändert.
 - `POST .../signing-secret/rotate` aufrufen, ohne vorher alle Webhook-Consumer zu informieren — die alte Signatur wird sofort ungültig, es gibt kein Überlappungsfenster.
 - Bei WhatsApp-Onboarding ein 24h-API-Setup-Token (aus `manual`) in Produktion einsetzen statt eines langlebigen System-User-Tokens.
+- Einen `assetId` löschen, der nur per `POST /call overrides.backgroundSound` referenziert wird, und ein `409` erwarten — `referenceCount` zählt nur gespeicherte Assistants; der Delete geht durch und künftige Calls laufen stumm ohne Ambience.
+- Einen `null`-Workflow-/Usage-Count aus den Management-Endpunkten als `0` behandeln — `null` heißt "nicht ermittelbar" (Workflows nicht konfiguriert / Engine nicht erreichbar), nicht "keine Flows".
+- `GET .../usage` für ein Live-Dashboard-Panel verwenden und aktuelle Debits erwarten — der Endpoint ist aggregator-backed und hinkt hinterher; dafür `.../usage/live` nutzen.
+- `DELETE /management/tenant/organizations/{org_id}` als reversibel behandeln — der Delete kaskadiert und entfernt die Ressourcen der Organisation.
+- Den `key` aus `POST .../organizations/{org_id}/api-keys` nicht sofort sichern — das volle Credential wird nur einmal in der Response zurückgegeben.
