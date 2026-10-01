@@ -24217,6 +24217,8 @@ components:
             - eleven_multilingual_v2
             - eleven_v3
             - eleven_v3_conversational
+            - eleven_v4_turbo
+            - eleven_v4
           - type: 'null'
         language:
           anyOf:
