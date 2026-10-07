@@ -13327,11 +13327,11 @@ paths:
       tags:
       - Billing - Reports
       summary: Live usage breakdown for an organization
-      description: 'Live "Usage this period" breakdown — reads
+      description: 'Live "Usage this period" breakdown — computed from the ledger at
 
-        `ledger_transactions` directly so the panel reflects the
+        request time, so it reflects the last debit without waiting for the
 
-        last-second debit, with no dependency on the daily aggregator.
+        daily roll-up.
 
 
         Use this for the customer-facing dashboard panel. The aggregator-
@@ -14577,7 +14577,25 @@ components:
           maxItems: 50
       type: object
       title: AnonymizationConfigSchema
-      description: $16a
+      description: 'Transcript anonymization — applies to both voice calls and chat sessions.
+
+
+        Rules are channel-agnostic: the same substitutions apply whether the
+
+        transcript came from a phone call or a chat session. Anonymization runs
+
+        after analysis (so structured-data extraction sees the original
+
+        transcript) and before the end-of-conversation webhook is sent.
+
+
+        Only `enabled` and `rules` are configurable. The redaction
+
+        instructions and retry behaviour are managed by the platform; legacy
+
+        `prompt`, `timeoutSeconds` and `maxRetries` keys are ignored, not
+
+        rejected.'
     AnonymizationRuleSchema:
       properties:
         label:
@@ -18130,7 +18148,7 @@ components:
           description: Surface a routing error. The message is logged; the call falls back to the assigned assistant.
       type: object
       title: AssistantRequestResponse
-      description: $16b
+      description: $16a
     AssistantSortBy:
       type: string
       enum:
@@ -18249,6 +18267,7 @@ components:
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
             - $ref: '#/components/schemas/Cartesia'
+            - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
             - $ref: '#/components/schemas/ElevenLabs'
             - $ref: '#/components/schemas/Fruitly'
@@ -18282,6 +18301,7 @@ components:
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
                 cartesia: '#/components/schemas/Cartesia'
+                clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
                 elevenlabs: '#/components/schemas/ElevenLabs'
                 fruitly: '#/components/schemas/Fruitly'
@@ -18403,6 +18423,7 @@ components:
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
             - $ref: '#/components/schemas/Cartesia'
+            - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
             - $ref: '#/components/schemas/ElevenLabs'
             - $ref: '#/components/schemas/Fruitly'
@@ -18436,6 +18457,7 @@ components:
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
                 cartesia: '#/components/schemas/Cartesia'
+                clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
                 elevenlabs: '#/components/schemas/ElevenLabs'
                 fruitly: '#/components/schemas/Fruitly'
@@ -19720,7 +19742,7 @@ components:
           enum:
           - invoice
           - cancellation
-          description: '`invoice` for an ordinary invoice. `cancellation` for the negative correcting document that is issued automatically when an issued invoice is voided — it carries the next number in the same sequence, every amount negated, and a reference to the invoice it cancels. Cancellation rows are born `paid`, are never owed, and refuse mark-paid / void / refund.'
+          description: '`invoice` for an ordinary invoice. `cancellation` for the negative correcting document that is issued automatically when an issued invoice is voided — it is numbered on its own sequence (`RINV-2026-0001`, separate from invoice numbers), carries every amount negated, and a reference to the invoice it cancels. Cancellation rows are born `paid`, are never owed, and refuse mark-paid / void / refund.'
           default: invoice
         cancelsInvoiceId:
           anyOf:
@@ -20075,13 +20097,15 @@ components:
         /upload-header-bg.
 
 
-        Admin sends file metadata; server mints a presigned R2 PUT URL.
+        Send the file''s metadata; the response carries a short-lived upload
 
-        Admin uploads directly to R2 with the URL, then PATCHes the
+        URL (`presignedPutUrl`, valid until `presignedExpiresAt`). `PUT`
 
-        returned `publicUrl` onto the widget''s `workspaceLogoUrl` /
+        the file to it, then set the returned `publicUrl` as the widget''s
 
-        `headerBackgroundImageUrl` via the existing PATCH endpoint.'
+        `workspaceLogoUrl` / `headerBackgroundImageUrl` with the widget
+
+        update endpoint.'
     BrandAssetUploadResponse:
       properties:
         assetKind:
@@ -20253,6 +20277,41 @@ components:
       - type
       - buttons
       title: ButtonsComponent
+    ButtonsRichContent:
+      properties:
+        kind:
+          type: string
+          const: buttons
+        text:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          description: Optional prompt shown above the buttons (plain text, up to 1000 characters).
+        buttons:
+          items:
+            $ref: '#/components/schemas/RichContentButton'
+          type: array
+          maxItems: 10
+          minItems: 1
+          description: 1-10 buttons.
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - buttons
+      title: ButtonsRichContent
+      description: '`kind: "buttons"` — quick replies and/or link buttons.'
+      examples:
+      - buttons:
+        - action: reply
+          label: Track my order
+          value: Where is my order?
+        - action: url
+          label: Returns policy
+          value: https://example.com/returns
+        kind: buttons
+        text: What can I help you with?
     ByoSipPhoneNumber:
       properties:
         number:
@@ -20505,7 +20564,7 @@ components:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: $16c
+          description: $16b
           examples:
           - firstMessage: Hallo! Hier ist die SpringSale-Hotline.
             model:
@@ -20799,7 +20858,7 @@ components:
       - role
       - content
       title: CallMessageSchema
-      description: $16d
+      description: $16c
     CallMonitorURLs:
       properties:
         controlUrl:
@@ -21156,7 +21215,7 @@ components:
           description: 'Cost the organization incurred for this call, in cents of the workspace''s billing currency (EUR in the EU region, AED in the UAE region). Computed at cleanup as `ceil(answered_seconds/60) × PricingPolicy.voiceRates[tier].baseCents` (with surcharge applied past the MC bucket). `None` while the call is in flight.
 
 
-            **Bucket coverage:** Reflects the call''s total usage cost regardless of which pre-paid bucket absorbed it — trial credit, monthly commitment (MC), or top-up. A call fully covered by trial credit still reports its actual minute cost here (the trial bucket simply absorbed the charge); use the `ledger_transactions` feed if you need a per-bucket breakdown.'
+            **Bucket coverage:** Reflects the call''s total usage cost regardless of which pre-paid bucket absorbed it — trial credit, monthly commitment (MC), or top-up. A call fully covered by trial credit still reports its actual minute cost here (the trial bucket simply absorbed the charge); use the transactions feed (`GET /billing/orgs/{org_id}/transactions`) if you need a per-bucket breakdown.'
         tenantWholesaleCents:
           anyOf:
           - type: integer
@@ -21393,6 +21452,36 @@ components:
         `windowState="not_applicable"` — the customer-care window concept
 
         only exists on WhatsApp Cloud API.'
+    CardsRichContent:
+      properties:
+        kind:
+          type: string
+          const: cards
+        cards:
+          items:
+            $ref: '#/components/schemas/RichContentCard'
+          type: array
+          maxItems: 10
+          minItems: 1
+          description: 1-10 cards.
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - cards
+      title: CardsRichContent
+      description: '`kind: "cards"` — a horizontally scrollable row of cards.'
+      examples:
+      - cards:
+        - buttons:
+          - action: reply
+            label: Choose Classic
+            value: I want the Classic plan
+          imageUrl: https://example.com/classic.png
+          subtitle: Our most popular plan
+          title: Classic plan
+          url: https://example.com/plans/classic
+        kind: cards
     CartesiaSTT:
       properties:
         provider:
@@ -21558,18 +21647,16 @@ components:
           default: 0
       type: object
       title: ChannelHealth
-      description: 'Health snapshot of the channel''s ability to actually transact.
+      description: 'Health snapshot of the channel''s ability to actually send.
 
 
-        Written by `channel_service.record_channel_failure` /
+        Updated by every send and by WhatsApp number registration. Distinct from
 
-        `record_channel_success` — the send path and the WhatsApp registration
+        the channel''s `status`, which is its lifecycle state and what sending
 
-        paths. Distinct from `Channel.status`, which is the lifecycle field the
+        is gated on: a channel can be `ACTIVE` (Meta reports the number as
 
-        send gate blocks on: a channel can be `ACTIVE` (Meta reports the number
-
-        CONNECTED) while every send is refused, and this is where that shows.'
+        connected) while every send is refused — this is where that shows.'
     ChannelHealthResponse:
       properties:
         channelId:
@@ -22283,9 +22370,7 @@ components:
       description: 'The `session` sub-payload shared by chat lifecycle webhooks.
 
 
-        Mirrors `chat_service._webhook_session_block` — the same
-
-        tier-masked view `GET /chat/session/{id}` returns.'
+        The same tier-masked view `GET /chat/session/{id}` returns.'
     ChatSessionCloseRequest:
       properties:
         reason:
@@ -22737,6 +22822,40 @@ components:
         with a clear error, so we surface that as a 422 at the API edge
 
         instead of letting the worker fail mid-ingestion.'
+    ClevrLabs:
+      properties:
+        provider:
+          type: string
+          const: clevrlabs
+        voiceId:
+          anyOf:
+          - type: string
+            const: default
+          - type: 'null'
+          description: Always `default` — the account's in-house voice, selected by Clevr server-side.
+        model:
+          anyOf:
+          - type: string
+            const: banter-1
+          - type: 'null'
+          description: Defaults to `banter-1` (the only model).
+        language:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - provider
+      title: ClevrLabs
+      description: 'Clevr Labs TTS — Banter 1, conversational English + Arabic speech.
+
+
+        One in-house voice per account (selected server-side) and automatic
+
+        language detection, so there is nothing to tune per assistant. The
+
+        endpoint is chosen on the Clevr provider key, not here.'
     CommitmentBreakage:
       properties:
         prevCommitmentStartedAt:
@@ -23378,7 +23497,7 @@ components:
       - role
       - content
       title: ConversationMessage
-      description: $16e
+      description: $16d
     ConversationNote:
       properties:
         id:
@@ -23683,6 +23802,14 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        navLinks:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/NavLinkInput'
+            type: array
+            maxItems: 10
+          - type: 'null'
+          description: Extra sidebar links for this organization only (max 10, https only), shown after the tenant's links. Replaces the stored list; [] clears it. Managed by the tenant.
       type: object
       required:
       - name
@@ -24242,16 +24369,19 @@ components:
             maximum: 1
             minimum: 0
           - type: 'null'
+          description: Not accepted with `eleven_v4` or `eleven_v4_turbo` (422).
         useSpeakerBoost:
           anyOf:
           - type: boolean
           - type: 'null'
+          description: Not accepted with `eleven_v4` or `eleven_v4_turbo` (422).
         speed:
           anyOf:
           - type: number
             maximum: 1.2
             minimum: 0.7
           - type: 'null'
+          description: Not accepted with `eleven_v4` or `eleven_v4_turbo` (422).
         applyTextNormalization:
           anyOf:
           - type: string
@@ -24574,7 +24704,7 @@ components:
       - role
       - message
       title: EndOfCallMessage
-      description: $16f
+      description: $16e
     EndOfCallReportEvent:
       properties:
         id:
@@ -25697,6 +25827,8 @@ components:
             - gemini-2.5-flash-preview-tts
             - gemini-2.5-pro-preview-tts
             - gemini-3.1-flash-tts-preview
+            - gemini-3.8-flash-lite-tts
+            - gemini-3.8-flash-tts
           - type: 'null'
         language:
           anyOf:
@@ -25833,7 +25965,9 @@ components:
             - gemini-2.5-flash-native-audio-preview-12-2025
             - gemini-3.1-flash-live-preview
             - gemini-live-2.5-flash-native-audio
+            - gemini-3.8-live
           - type: 'null'
+          description: Model id. `gemini-3.8-live` needs a Gemini API key — with a service-account credential the call runs on `gemini-live-2.5-flash-native-audio` instead — and with it `language`, `affectiveDialog`, `proactivity` and `thinkingConfig` have no effect.
         voice:
           anyOf:
           - type: string
@@ -28000,13 +28134,16 @@ components:
       - periodEnd
       - currency
       title: LiveUsageReportResponse
-      description: '`GET /billing/.../usage/live` — same shape as
+      description: '`GET /billing/.../usage/live` — usage for the current period,
 
-        `UsageReportResponse` minus the aggregator-specific fields,
+        computed at request time.
 
-        populated by `billing_reports_service.get_*_usage_live` which
 
-        walks `ledger_transactions` directly.'
+        Same shape as `UsageReportResponse`, except that each breakdown item
+
+        carries only the usage fields, without the id and timestamps of a
+
+        stored daily roll-up.'
     LlmUsageRecord:
       properties:
         provider:
@@ -29135,6 +29272,35 @@ components:
         header would be played as audio. Same class of bug as the Sarvam
 
         `bulbul:v3` silent-audio incident.'
+    NavLinkInput:
+      properties:
+        label:
+          type: string
+          description: Text shown in the sidebar, 1–40 characters (trimmed).
+        url:
+          type: string
+          maxLength: 500
+          description: An https:// URL; opens in a new tab.
+        icon:
+          anyOf:
+          - type: string
+            enum:
+            - link
+            - book
+            - chart
+            - help
+            - settings
+            - file
+            - external
+          - type: 'null'
+          description: Optional icon name; omitted → the default link icon.
+      additionalProperties: false
+      type: object
+      required:
+      - label
+      - url
+      title: NavLinkInput
+      description: One sidebar link as written by a tenant admin.
     Neuphonic:
       properties:
         provider:
@@ -29445,6 +29611,8 @@ components:
         model:
           type: string
           enum:
+          - gpt-6-sol
+          - gpt-6-luna
           - gpt-5.6-terra
           - gpt-5.6-luna
           - gpt-5.6-sol
@@ -29514,16 +29682,9 @@ components:
       description: 'OpenAI LLM configuration (pipeline mode).
 
 
-        `provider` is fixed to `"openai"` — it is used as the
+        `provider` is always `"openai"`, and `model` must be one of the
 
-        discriminator value when this variant lands inside the
-
-        `ModelConfigSchema` union.
-
-
-        `model` is constrained to the exact list of supported model IDs
-
-        in `MODELS`. Mintlify renders it as a searchable enum chip set.'
+        listed model ids.'
     OpenAIRealtime:
       properties:
         provider:
@@ -29617,6 +29778,8 @@ components:
           type: string
           enum:
           - gpt-6-astra
+          - gpt-6-sol
+          - gpt-6-luna
           - gpt-5.6-luna
           - gpt-5.6-terra
           - gpt-5.6-sol
@@ -30235,6 +30398,13 @@ components:
           anyOf:
           - $ref: '#/components/schemas/OrgDataRetentionSchema'
           - type: 'null'
+        navLinks:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          description: Extra sidebar links shown to this organization's members after the tenant's own links, each with `label`, `url` and an optional `icon` (the `NavLinkInput` shape). Empty when none are set.
+          default: []
         billingStatus:
           anyOf:
           - type: string
@@ -31116,19 +31286,19 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-          description: BCP-47 language code for the resolved transcriber. Required when `tier='gold'` (Gold voices are language-agnostic, so the user picks the call language). Ignored for Standard (language is derived from the voice card) and Premium (the realtime model handles language internally).
+          description: BCP-47 language code for the call. Required when `tier='gold'` and for Standard's multilingual voices, which speak many languages, so you pick the call language. Refused on Standard's pre-tuned voices (their language is fixed) and on Premium (the realtime model handles language internally).
         tierSttOverrides:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: Optional transcription overrides for `tier='gold'`. Merged on top of the tier's default transcriber config. `provider` and `model` are tier-locked and silently dropped if supplied. Ignored for Standard / Premium.
+          description: Optional transcription overrides for `tier='gold'` and for Standard's multilingual voices. Merged on top of the tier's default transcriber config. `provider` and `model` are tier-locked and silently dropped if supplied. Refused on Premium and on Standard's pre-tuned voices.
         tierVoiceOverrides:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: Optional voice tuning overrides for `tier='gold'`. Merged on top of the tier's default voice config so the user can tune stability / similarity / style / speed / etc. for the picked voice card. `provider` / `model` / `voiceId` are tier-locked and silently dropped if supplied. Ignored for Standard / Premium.
+          description: Optional voice tuning overrides for `tier='gold'` and for Standard's multilingual voices. Merged on top of the tier's default voice config; which settings apply depends on the picked voice card, and a setting it doesn't take is ignored. `provider` / `model` / `voiceId` are tier-locked and silently dropped if supplied. Refused on Premium and on Standard's pre-tuned voices.
         tierRealtimeOverrides:
           anyOf:
           - $ref: '#/components/schemas/TierRealtimeOverrides'
@@ -31194,6 +31364,7 @@ components:
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
             - $ref: '#/components/schemas/Cartesia'
+            - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
             - $ref: '#/components/schemas/ElevenLabs'
             - $ref: '#/components/schemas/Fruitly'
@@ -31227,6 +31398,7 @@ components:
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
                 cartesia: '#/components/schemas/Cartesia'
+                clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
                 elevenlabs: '#/components/schemas/ElevenLabs'
                 fruitly: '#/components/schemas/Fruitly'
@@ -31348,6 +31520,7 @@ components:
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
             - $ref: '#/components/schemas/Cartesia'
+            - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
             - $ref: '#/components/schemas/ElevenLabs'
             - $ref: '#/components/schemas/Fruitly'
@@ -31381,6 +31554,7 @@ components:
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
                 cartesia: '#/components/schemas/Cartesia'
+                clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
                 elevenlabs: '#/components/schemas/ElevenLabs'
                 fruitly: '#/components/schemas/Fruitly'
@@ -31658,19 +31832,19 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-          description: BCP-47 language code for the resolved transcriber. Required when `tier='gold'` (Gold voices are language-agnostic, so the user picks the call language). Ignored for Standard (language is derived from the voice card) and Premium (the realtime model handles language internally).
+          description: BCP-47 language code for the call. Required when `tier='gold'` and for Standard's multilingual voices, which speak many languages, so you pick the call language. Refused on Standard's pre-tuned voices (their language is fixed) and on Premium (the realtime model handles language internally).
         tierSttOverrides:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: Optional transcription overrides for `tier='gold'`. Merged on top of the tier's default transcriber config. `provider` and `model` are tier-locked and silently dropped if supplied. Ignored for Standard / Premium.
+          description: Optional transcription overrides for `tier='gold'` and for Standard's multilingual voices. Merged on top of the tier's default transcriber config. `provider` and `model` are tier-locked and silently dropped if supplied. Refused on Premium and on Standard's pre-tuned voices.
         tierVoiceOverrides:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: Optional voice tuning overrides for `tier='gold'`. Merged on top of the tier's default voice config so the user can tune stability / similarity / style / speed / etc. for the picked voice card. `provider` / `model` / `voiceId` are tier-locked and silently dropped if supplied. Ignored for Standard / Premium.
+          description: Optional voice tuning overrides for `tier='gold'` and for Standard's multilingual voices. Merged on top of the tier's default voice config; which settings apply depends on the picked voice card, and a setting it doesn't take is ignored. `provider` / `model` / `voiceId` are tier-locked and silently dropped if supplied. Refused on Premium and on Standard's pre-tuned voices.
         tierRealtimeOverrides:
           anyOf:
           - $ref: '#/components/schemas/TierRealtimeOverrides'
@@ -31736,6 +31910,7 @@ components:
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
             - $ref: '#/components/schemas/Cartesia'
+            - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
             - $ref: '#/components/schemas/ElevenLabs'
             - $ref: '#/components/schemas/Fruitly'
@@ -31769,6 +31944,7 @@ components:
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
                 cartesia: '#/components/schemas/Cartesia'
+                clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
                 elevenlabs: '#/components/schemas/ElevenLabs'
                 fruitly: '#/components/schemas/Fruitly'
@@ -31890,6 +32066,7 @@ components:
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
             - $ref: '#/components/schemas/Cartesia'
+            - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
             - $ref: '#/components/schemas/ElevenLabs'
             - $ref: '#/components/schemas/Fruitly'
@@ -31923,6 +32100,7 @@ components:
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
                 cartesia: '#/components/schemas/Cartesia'
+                clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
                 elevenlabs: '#/components/schemas/ElevenLabs'
                 fruitly: '#/components/schemas/Fruitly'
@@ -32278,6 +32456,7 @@ components:
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
             - $ref: '#/components/schemas/Cartesia'
+            - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
             - $ref: '#/components/schemas/ElevenLabs'
             - $ref: '#/components/schemas/Fruitly'
@@ -32311,6 +32490,7 @@ components:
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
                 cartesia: '#/components/schemas/Cartesia'
+                clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
                 elevenlabs: '#/components/schemas/ElevenLabs'
                 fruitly: '#/components/schemas/Fruitly'
@@ -32432,6 +32612,7 @@ components:
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
             - $ref: '#/components/schemas/Cartesia'
+            - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
             - $ref: '#/components/schemas/ElevenLabs'
             - $ref: '#/components/schemas/Fruitly'
@@ -32465,6 +32646,7 @@ components:
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
                 cartesia: '#/components/schemas/Cartesia'
+                clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
                 elevenlabs: '#/components/schemas/ElevenLabs'
                 fruitly: '#/components/schemas/Fruitly'
@@ -33385,19 +33567,19 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-          description: BCP-47 language code for the resolved transcriber. Required when `tier='gold'` (Gold voices are language-agnostic, so the user picks the call language). Ignored for Standard (language is derived from the voice card) and Premium (the realtime model handles language internally).
+          description: BCP-47 language code for the call. Required when `tier='gold'` and for Standard's multilingual voices, which speak many languages, so you pick the call language. Refused on Standard's pre-tuned voices (their language is fixed) and on Premium (the realtime model handles language internally).
         tierSttOverrides:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: Optional transcription overrides for `tier='gold'`. Merged on top of the tier's default transcriber config. `provider` and `model` are tier-locked and silently dropped if supplied. Ignored for Standard / Premium.
+          description: Optional transcription overrides for `tier='gold'` and for Standard's multilingual voices. Merged on top of the tier's default transcriber config. `provider` and `model` are tier-locked and silently dropped if supplied. Refused on Premium and on Standard's pre-tuned voices.
         tierVoiceOverrides:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: Optional voice tuning overrides for `tier='gold'`. Merged on top of the tier's default voice config so the user can tune stability / similarity / style / speed / etc. for the picked voice card. `provider` / `model` / `voiceId` are tier-locked and silently dropped if supplied. Ignored for Standard / Premium.
+          description: Optional voice tuning overrides for `tier='gold'` and for Standard's multilingual voices. Merged on top of the tier's default voice config; which settings apply depends on the picked voice card, and a setting it doesn't take is ignored. `provider` / `model` / `voiceId` are tier-locked and silently dropped if supplied. Refused on Premium and on Standard's pre-tuned voices.
         tierRealtimeOverrides:
           anyOf:
           - $ref: '#/components/schemas/TierRealtimeOverrides'
@@ -33643,19 +33825,19 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-          description: BCP-47 language code for the resolved transcriber. Required when `tier='gold'` (Gold voices are language-agnostic, so the user picks the call language). Ignored for Standard (language is derived from the voice card) and Premium (the realtime model handles language internally).
+          description: BCP-47 language code for the call. Required when `tier='gold'` and for Standard's multilingual voices, which speak many languages, so you pick the call language. Refused on Standard's pre-tuned voices (their language is fixed) and on Premium (the realtime model handles language internally).
         tierSttOverrides:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: Optional transcription overrides for `tier='gold'`. Merged on top of the tier's default transcriber config. `provider` and `model` are tier-locked and silently dropped if supplied. Ignored for Standard / Premium.
+          description: Optional transcription overrides for `tier='gold'` and for Standard's multilingual voices. Merged on top of the tier's default transcriber config. `provider` and `model` are tier-locked and silently dropped if supplied. Refused on Premium and on Standard's pre-tuned voices.
         tierVoiceOverrides:
           anyOf:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: Optional voice tuning overrides for `tier='gold'`. Merged on top of the tier's default voice config so the user can tune stability / similarity / style / speed / etc. for the picked voice card. `provider` / `model` / `voiceId` are tier-locked and silently dropped if supplied. Ignored for Standard / Premium.
+          description: Optional voice tuning overrides for `tier='gold'` and for Standard's multilingual voices. Merged on top of the tier's default voice config; which settings apply depends on the picked voice card, and a setting it doesn't take is ignored. `provider` / `model` / `voiceId` are tier-locked and silently dropped if supplied. Refused on Premium and on Standard's pre-tuned voices.
         tierRealtimeOverrides:
           anyOf:
           - $ref: '#/components/schemas/TierRealtimeOverrides'
@@ -34532,6 +34714,80 @@ components:
         aggregates. Negative numbers are signed (e.g. `refundCents` is
 
         positive — it represents amount refunded, NOT net-revenue effect).'
+    RichContentButton:
+      properties:
+        label:
+          type: string
+          maxLength: 40
+          minLength: 1
+          description: Button text, 1-40 characters.
+        action:
+          type: string
+          enum:
+          - reply
+          - url
+          description: '`reply` — sends `value` as the visitor''s message (the widget disables the buttons once one is used or the visitor types). `url` — opens `value` in a new tab.'
+        value:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          description: 'For `reply`: the message text, 1-500 characters. For `url`: an `http`, `https`, `mailto` or `tel` link, at most 2000 characters.'
+      additionalProperties: false
+      type: object
+      required:
+      - label
+      - action
+      - value
+      title: RichContentButton
+      description: 'One button. `reply` sends `value` as the visitor''s next message;
+
+        `url` opens `value` in a new tab.'
+      examples:
+      - action: reply
+        label: Track my order
+        value: Where is my order?
+      - action: url
+        label: Opening hours
+        value: https://example.com/hours
+    RichContentCard:
+      properties:
+        title:
+          type: string
+          maxLength: 80
+          minLength: 1
+          description: Card title, 1-80 characters.
+        subtitle:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          description: Up to 200 characters.
+        imageUrl:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          description: '`https` image shown on top of the card.'
+        url:
+          anyOf:
+          - type: string
+            maxLength: 2000
+          - type: 'null'
+          description: '`http`/`https` link opened (new tab) when the card is clicked.'
+        buttons:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/RichContentButton'
+            type: array
+            maxItems: 3
+          - type: 'null'
+          description: Up to 3 buttons under the card.
+      additionalProperties: false
+      type: object
+      required:
+      - title
+      title: RichContentCard
+      description: One card in a `cards` block.
     Rime:
       properties:
         provider:
@@ -37411,7 +37667,7 @@ components:
       - call
       - toolCalls
       title: ToolCallEvent
-      description: $170
+      description: $16f
     ToolCallEventCallContext:
       properties:
         id:
@@ -37974,13 +38230,13 @@ components:
           default: 60
         playDialtone:
           type: boolean
-          description: Play dialtone to the caller while connecting.
+          description: 'The caller hears a ringing tone while the destination is connected. Blind modes: until the hand-over completes. Warm: while the destination rings; once it answers, `holdAudioUrl` plays if set, otherwise the ringing continues.'
           default: false
         holdAudioUrl:
           anyOf:
           - type: string
           - type: 'null'
-          description: Audio URL played to the caller on hold.
+          description: 'Warm mode only. Audio played to the caller while they wait (default: built-in hold music). With `playDialtone` on, it plays once the destination answers. A URL that cannot be downloaded, or is not playable audio, is treated as unset.'
         briefingPrompt:
           anyOf:
           - type: string
@@ -38326,6 +38582,14 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        navLinks:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/NavLinkInput'
+            type: array
+            maxItems: 10
+          - type: 'null'
+          description: Extra sidebar links for this organization only (max 10, https only), shown after the tenant's links. Replaces the stored list; [] clears it. Managed by the tenant.
         taxIdValue:
           anyOf:
           - type: string
@@ -39198,6 +39462,15 @@ components:
             maxLength: 8
             minLength: 2
           - type: 'null'
+        labelOverrides:
+          anyOf:
+          - additionalProperties:
+              additionalProperties:
+                type: string
+              type: object
+            type: object
+          - type: 'null'
+          description: 'Per-language replacements for the widget''s built-in text, e.g. `{"de": {"home.askQuestion": "Frag uns"}}`. Languages must be supported (`en`, `de`, `fr`, `es`, `it`, `pt`, `ar`, `zh`, `ja`, `ru`); keys start with a letter and use letters, digits, `_` and `.` (at most 64 characters); each label is 1-200 characters after trimming, and a blank label is dropped; at most 200 labels per language. `{placeholders}` are kept and filled in by the widget.'
         retentionDays:
           anyOf:
           - type: integer
@@ -39221,8 +39494,10 @@ components:
         monthlyMessageCap:
           anyOf:
           - type: integer
-            minimum: 1
+            maximum: 100000000
+            minimum: 0
           - type: 'null'
+          description: Most visitor messages this widget accepts per calendar month (UTC). Once reached, sending is refused with 429 `monthly_cap_exceeded` until the 1st of next month; visitors can still open the widget and read. null or 0 = no cap.
         features:
           anyOf:
           - $ref: '#/components/schemas/WidgetFeatures'
@@ -39371,6 +39646,16 @@ components:
           type: array
         defaultLocale:
           type: string
+        labelOverrides:
+          additionalProperties:
+            additionalProperties:
+              type: string
+            type: object
+          type: object
+          description: Per-language replacements for the widget's built-in text. Labels for a language that isn't in `enabledLocales` are kept but not shown.
+          examples:
+          - de:
+              home.askQuestion: Frag uns
         retentionDays:
           type: integer
         gdprMode:
@@ -39378,9 +39663,7 @@ components:
         features:
           $ref: '#/components/schemas/WidgetFeatures'
         rateLimits:
-          anyOf:
-          - $ref: '#/components/schemas/WidgetRateLimits'
-          - type: 'null'
+          $ref: '#/components/schemas/WidgetRateLimits'
         allowedOrigins:
           items:
             type: string
@@ -39389,6 +39672,7 @@ components:
           anyOf:
           - type: integer
           - type: 'null'
+          description: Most visitor messages this widget accepts per calendar month (UTC). Once reached, sending is refused with 429 `monthly_cap_exceeded` until the 1st of next month; visitors can still open the widget and read. null or 0 = no cap.
         home:
           $ref: '#/components/schemas/WidgetHomeConfig'
         voice:
@@ -39504,6 +39788,7 @@ components:
           default: true
         conversationHistoryEnabled:
           type: boolean
+          description: 'When false, visitors see only their current conversation — the one they started most recently: no conversation list and no recent conversations on Home. Earlier conversations can''t be opened from the widget (404); they stay in your workspace.'
           default: true
         typingIndicatorsEnabled:
           type: boolean
@@ -39674,47 +39959,60 @@ components:
           type: integer
           maximum: 10000
           minimum: 1
+          description: Widget tokens one IP address may mint per minute on this widget.
           default: 50
         authMintsPerMinutePerWidget:
           type: integer
           maximum: 100000
           minimum: 1
+          description: Widget tokens minted per minute across all visitors of this widget.
           default: 200
         messagesPerMinutePerVisitor:
           type: integer
           maximum: 10000
           minimum: 1
+          description: Messages one visitor may send per minute.
           default: 30
         filesPerHourPerVisitor:
           type: integer
           maximum: 10000
           minimum: 1
+          description: File uploads one visitor may start per hour.
           default: 50
         pollsPerMinutePerVisitor:
           type: integer
           maximum: 600
           minimum: 1
+          description: Conversation reads (reply polling) one visitor may make per minute.
           default: 30
         callStartsPerHourPerVisitor:
           type: integer
           maximum: 1000
           minimum: 1
+          description: Voice calls one visitor may start per hour.
           default: 5
+        messagesPerHourPerVisitor:
+          anyOf:
+          - type: integer
+            maximum: 100000
+            minimum: 1
+          - type: 'null'
+          description: Messages one visitor may send per hour. null = no hourly limit.
       additionalProperties: false
       type: object
       title: WidgetRateLimits
-      description: 'Per-widget rate-limit overrides. Defaults match the platform
-
-        fallbacks in `src.widget.services.rate_limit_service`.
+      description: 'Per-widget rate limits.
 
 
-        Admin can tighten or loosen any limit per widget for advanced cases
+        On create, a limit left out uses the platform default shown on its
 
-        (e.g. a high-traffic public widget might need a higher mint cap,
+        field. On update, only the limits you send change; a limit sent as
 
-        or an internal pilot widget might bound runaway clients with a
+        `null` returns to its default, and `rateLimits: null` resets them
 
-        tighter per-visitor message cap).'
+        all. `messagesPerHourPerVisitor` has no default: `null` turns the
+
+        hourly limit off. Responses carry the effective value of every limit.'
     WidgetResponse:
       properties:
         id:
@@ -39817,6 +40115,16 @@ components:
           type: array
         defaultLocale:
           type: string
+        labelOverrides:
+          additionalProperties:
+            additionalProperties:
+              type: string
+            type: object
+          type: object
+          description: Per-language replacements for the widget's built-in text. Labels for a language that isn't in `enabledLocales` are kept but not shown.
+          examples:
+          - de:
+              home.askQuestion: Frag uns
         retentionDays:
           type: integer
         gdprMode:
@@ -39824,9 +40132,7 @@ components:
         features:
           $ref: '#/components/schemas/WidgetFeatures'
         rateLimits:
-          anyOf:
-          - $ref: '#/components/schemas/WidgetRateLimits'
-          - type: 'null'
+          $ref: '#/components/schemas/WidgetRateLimits'
         allowedOrigins:
           items:
             type: string
@@ -39835,6 +40141,7 @@ components:
           anyOf:
           - type: integer
           - type: 'null'
+          description: Most visitor messages this widget accepts per calendar month (UTC). Once reached, sending is refused with 429 `monthly_cap_exceeded` until the 1st of next month; visitors can still open the widget and read. null or 0 = no cap.
         home:
           $ref: '#/components/schemas/WidgetHomeConfig'
         voice:
@@ -39928,6 +40235,8 @@ components:
         content:
           type: string
           maxLength: 32000
+          description: Text shown to the visitor. The widget renders a safe Markdown subset (bold, italic, inline code, code blocks, lists, links) and turns bare URLs and e-mail addresses into links; HTML is shown as text. May be empty when `richContent` is set — a message with neither is skipped.
+          default: ''
         type:
           type: string
           enum:
@@ -39937,13 +40246,18 @@ components:
           default: final
         richContent:
           anyOf:
-          - additionalProperties: true
-            type: object
+          - oneOf:
+            - $ref: '#/components/schemas/ButtonsRichContent'
+            - $ref: '#/components/schemas/CardsRichContent'
+            description: 'Optional structured content rendered under the message text. `kind` selects the shape: `buttons` (up to 10 buttons) or `cards` (up to 10 cards, each with up to 3 buttons). Unknown kinds are rejected. Button and card links accept http/https (buttons also mailto/tel); card images must be https.'
+            discriminator:
+              propertyName: kind
+              mapping:
+                buttons: '#/components/schemas/ButtonsRichContent'
+                cards: '#/components/schemas/CardsRichContent'
           - type: 'null'
-          description: Optional structured content (cards, buttons).
+          description: Optional `buttons` or `cards` block rendered under the text — same schema as `POST /widget/reply`. An invalid block is dropped (the text is still delivered) and reported as a `widget.webhook.reply_rejected` audit event.
       type: object
-      required:
-      - content
       title: WidgetSyncReplyMessage
     WidgetUpdateRequest:
       properties:
@@ -40114,6 +40428,15 @@ components:
             maxLength: 8
             minLength: 2
           - type: 'null'
+        labelOverrides:
+          anyOf:
+          - additionalProperties:
+              additionalProperties:
+                type: string
+              type: object
+            type: object
+          - type: 'null'
+          description: Per-language replacements for the widget's built-in text. Replaces the whole map; `{}` clears every label. Languages must be supported (`en`, `de`, `fr`, `es`, `it`, `pt`, `ar`, `zh`, `ja`, `ru`); keys start with a letter and use letters, digits, `_` and `.` (at most 64 characters); each label is 1-200 characters after trimming, and a blank label is dropped; at most 200 labels per language. `{placeholders}` are kept and filled in by the widget.
         retentionDays:
           anyOf:
           - type: integer
@@ -40137,8 +40460,10 @@ components:
         monthlyMessageCap:
           anyOf:
           - type: integer
-            minimum: 1
+            maximum: 100000000
+            minimum: 0
           - type: 'null'
+          description: Most visitor messages this widget accepts per calendar month (UTC). Once reached, sending is refused with 429 `monthly_cap_exceeded` until the 1st of next month; visitors can still open the widget and read. null or 0 = no cap.
         features:
           anyOf:
           - $ref: '#/components/schemas/WidgetFeatures'
