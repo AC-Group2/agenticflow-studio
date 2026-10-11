@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **214 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-09-17).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **215 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-10-11).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -15,7 +15,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 ## Finding the right endpoint
 
-1. **[endpoints.md](endpoints.md)** — all 214 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page; fetch `https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) instead of the linked URL to get clean markdown via curl/WebFetch.
+1. **[endpoints.md](endpoints.md)** — all 215 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page; fetch `https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) instead of the linked URL to get clean markdown via curl/WebFetch.
 2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.2 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
 3. **Live doc index:** https://docs.agenticflow.studio/llms.txt lists every doc page including guides (messaging billing/quickstart, SIP trunk setup/troubleshooting, widget identity/installation, changelog).
 
@@ -35,7 +35,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 | Folders | 5 | Organize resources by `resourceType` |
 | Billing - Invoices | 4 | List/get invoices, download frozen JSON package, admin-only manual mark-paid |
 | Messaging | 76 | Channels + signing-secret rotation, onboarding (WhatsApp/Telegram/SMS/email), WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
-| Widget – Admin | 35 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
+| Widget – Admin | 36 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
 | Audio Asset | 4 | CRUD for the org's background-sound / audio library, incl. built-in system sounds |
 | Management - Organizations | 8 | CRUD for organizations under a tenant + per-org API-key issue/list/revoke |
 | Management - Tenant Overview | 3 | Cross-org tenant status/usage rollups and workflow counts |
@@ -144,6 +144,16 @@ Both `GET /billing/{orgs,tenants}/{id}/usage` and the `/usage/live` sibling repo
 - `getTenantOverview` carries a `warnings` array — read it before treating the response as complete; a section that failed to build reports `null` there and says why.
 - `getTenantWorkflowSummary`'s `totals` sums only the organizations it could count: when `countedCount < organizationCount`, `totals` is a **floor**, not the true total, and uncounted orgs show as `null` in the per-org map. `truncated: true` means the tenant has more orgs than fit in one response — again a floor, not silently dropped.
 
+## Widget brand asset uploads — `upload-logo` / `upload-header-bg` / `upload-launcher-icon`
+
+`POST /widget/admin/widgets/{widget_id}/upload-logo|upload-header-bg|upload-launcher-icon` do **not** accept the file itself — they share `BrandAssetUploadRequest` (`filename`, `mimeType`, `sizeBytes`, max 10 MiB) and only hand back upload credentials. Three-step flow:
+
+1. `POST` the file's metadata to the matching endpoint → response (`BrandAssetUploadResponse`) carries `presignedPutUrl` (valid until `presignedExpiresAt`) and the future `publicUrl`.
+2. `PUT` the raw file bytes to `presignedPutUrl` yourself, before it expires.
+3. `PATCH` the widget and set `workspaceLogoUrl` / `headerBackgroundImageUrl` / `launcherIconUrl` to the `publicUrl` from step 1 — the upload endpoint never updates the widget record.
+
+`413`/`415` come back for an oversized or wrong-mimetype request at step 1, before any presigned URL is issued.
+
 ## Common mistakes
 
 - Guessing field names from memory instead of grepping `openapi.yaml` — schemas here are the source of truth.
@@ -162,3 +172,4 @@ Both `GET /billing/{orgs,tenants}/{id}/usage` and the `/usage/live` sibling repo
 - `GET .../usage` für ein Live-Dashboard-Panel verwenden und aktuelle Debits erwarten — der Endpoint ist aggregator-backed und hinkt hinterher; dafür `.../usage/live` nutzen.
 - `DELETE /management/tenant/organizations/{org_id}` als reversibel behandeln — der Delete kaskadiert und entfernt die Ressourcen der Organisation.
 - Den `key` aus `POST .../organizations/{org_id}/api-keys` nicht sofort sichern — das volle Credential wird nur einmal in der Response zurückgegeben.
+- Die Rohdatei an `upload-logo`/`upload-header-bg`/`upload-launcher-icon` senden und ein fertiges Bild erwarten — die Endpoints liefern nur Metadaten + presigned URL; Upload per `PUT` und das Setzen des Widget-Felds sind separate Schritte.

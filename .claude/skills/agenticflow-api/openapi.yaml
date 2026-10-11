@@ -1065,7 +1065,7 @@ paths:
       tags:
       - Assistant
       summary: Update Assistant
-      description: $163
+      description: $164
       operationId: updateAssistant
       parameters:
       - name: assistantId
@@ -4599,7 +4599,7 @@ paths:
       tags:
       - Chat
       summary: Send message
-      description: $164
+      description: $165
       operationId: sendChatMessage
       requestBody:
         content:
@@ -4747,7 +4747,7 @@ paths:
       tags:
       - Chat
       summary: Get Chat Session Log Archive
-      description: $165
+      description: $166
       operationId: getChatSessionLogs
       parameters:
       - name: sessionId
@@ -5891,7 +5891,7 @@ paths:
       tags:
       - Audio Asset
       summary: Delete an Audio Asset
-      description: $166
+      description: $167
       operationId: deleteAudioAsset
       parameters:
       - name: assetId
@@ -11085,6 +11085,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /widget/admin/widgets/{widget_id}/upload-launcher-icon:
+    post:
+      tags:
+      - Widget - Admin
+      summary: Upload launcher icon
+      operationId: widgetAdminUploadLauncherIcon
+      parameters:
+      - name: widget_id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          title: Widget Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrandAssetUploadRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_BrandAssetUploadResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '413':
+          description: Error 413.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '415':
+          description: Error 415.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /widget/admin/widgets/{widget_id}/articles:
     post:
       tags:
@@ -13018,7 +13087,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Download an invoice as a JSON package
-      description: $167
+      description: $168
       operationId: downloadBillingInvoiceJson
       parameters:
       - name: invoice_id
@@ -13067,7 +13136,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Confirm an offline payment landed → credits the MC ledger
-      description: $168
+      description: $169
       operationId: markInvoicePaid
       parameters:
       - name: invoice_id
@@ -13987,7 +14056,7 @@ paths:
       tags:
       - Billing - Plan Switch
       summary: Switch an organization's plan
-      description: $169
+      description: $16a
       operationId: switchOrgPlan
       parameters:
       - name: org_id
@@ -18148,7 +18217,7 @@ components:
           description: Surface a routing error. The message is logged; the call falls back to the assigned assistant.
       type: object
       title: AssistantRequestResponse
-      description: $16a
+      description: $16b
     AssistantSortBy:
       type: string
       enum:
@@ -20092,9 +20161,9 @@ components:
       - mimeType
       - sizeBytes
       title: BrandAssetUploadRequest
-      description: 'Body for POST /widget/admin/widgets/{id}/upload-logo and
+      description: 'Body for POST /widget/admin/widgets/{id}/upload-logo,
 
-        /upload-header-bg.
+        /upload-header-bg and /upload-launcher-icon.
 
 
         Send the file''s metadata; the response carries a short-lived upload
@@ -20103,9 +20172,9 @@ components:
 
         the file to it, then set the returned `publicUrl` as the widget''s
 
-        `workspaceLogoUrl` / `headerBackgroundImageUrl` with the widget
+        `workspaceLogoUrl` / `headerBackgroundImageUrl` / `launcherIconUrl`
 
-        update endpoint.'
+        with the widget update endpoint.'
     BrandAssetUploadResponse:
       properties:
         assetKind:
@@ -20113,6 +20182,7 @@ components:
           enum:
           - logo
           - header-bg
+          - launcher-icon
         presignedPutUrl:
           type: string
         presignedExpiresAt:
@@ -20564,7 +20634,7 @@ components:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: $16b
+          description: $16c
           examples:
           - firstMessage: Hallo! Hier ist die SpringSale-Hotline.
             model:
@@ -20858,7 +20928,7 @@ components:
       - role
       - content
       title: CallMessageSchema
-      description: $16c
+      description: $16d
     CallMonitorURLs:
       properties:
         controlUrl:
@@ -23497,7 +23567,7 @@ components:
       - role
       - content
       title: ConversationMessage
-      description: $16d
+      description: $16e
     ConversationNote:
       properties:
         id:
@@ -24704,7 +24774,7 @@ components:
       - role
       - message
       title: EndOfCallMessage
-      description: $16e
+      description: $16f
     EndOfCallReportEvent:
       properties:
         id:
@@ -29704,18 +29774,8 @@ components:
         voice:
           anyOf:
           - type: string
-            enum:
-            - alloy
-            - ash
-            - ballad
-            - cedar
-            - coral
-            - echo
-            - marin
-            - sage
-            - shimmer
-            - verse
           - type: 'null'
+          description: A built-in voice (alloy, ash, ballad, cedar, coral, echo, marin, sage, shimmer, verse) or the id of a custom voice from your own OpenAI account (`voice_...`), as a plain string. `marin` when unset.
         language:
           anyOf:
           - type: string
@@ -29859,21 +29919,8 @@ components:
         voiceId:
           anyOf:
           - type: string
-            enum:
-            - alloy
-            - ash
-            - ballad
-            - cedar
-            - coral
-            - echo
-            - fable
-            - marin
-            - nova
-            - onyx
-            - sage
-            - shimmer
-            - verse
           - type: 'null'
+          description: A built-in voice (alloy, ash, ballad, cedar, coral, echo, fable, marin, nova, onyx, sage, shimmer, verse) or the id of a custom voice from your own OpenAI account (`voice_...`), as a plain string. Custom voices need the `gpt-4o-mini-tts` model. `ash` when unset.
         model:
           anyOf:
           - type: string
@@ -29902,7 +29949,7 @@ components:
       required:
       - provider
       title: OpenAITTS
-      description: 'OpenAI TTS variant — 13 static voices.
+      description: 'OpenAI TTS variant — 13 built-in voices, plus custom voices from your own OpenAI account.
 
 
         `voiceId` is optional on the wire (defaults to `ash` at runtime,
@@ -36751,6 +36798,20 @@ components:
           additionalProperties:
             type: string
           type: object
+        trigger:
+          type: string
+          enum:
+          - after_reply
+          - inactivity
+          - conversation_closed
+          description: 'When the widget shows the survey: after_reply (after each final answer), inactivity (after inactivityMinutes without a new message), conversation_closed (once the conversation is closed or expired).'
+          default: after_reply
+        inactivityMinutes:
+          type: integer
+          maximum: 1440
+          minimum: 1
+          description: Minutes without a new message before an inactivity survey appears (1-1440).
+          default: 5
         enabled:
           type: boolean
           default: true
@@ -36784,6 +36845,16 @@ components:
           additionalProperties:
             type: string
           type: object
+        trigger:
+          type: string
+          enum:
+          - after_reply
+          - inactivity
+          - conversation_closed
+          default: after_reply
+        inactivityMinutes:
+          type: integer
+          default: 5
         enabled:
           type: boolean
         createdAt:
@@ -36840,6 +36911,22 @@ components:
               type: string
             type: object
           - type: 'null'
+        trigger:
+          anyOf:
+          - type: string
+            enum:
+            - after_reply
+            - inactivity
+            - conversation_closed
+          - type: 'null'
+          description: 'When the widget shows the survey: after_reply (after each final answer), inactivity (after inactivityMinutes without a new message), conversation_closed (once the conversation is closed or expired).'
+        inactivityMinutes:
+          anyOf:
+          - type: integer
+            maximum: 1440
+            minimum: 1
+          - type: 'null'
+          description: Minutes without a new message before an inactivity survey appears (1-1440).
         enabled:
           anyOf:
           - type: boolean
@@ -37667,7 +37754,7 @@ components:
       - call
       - toolCalls
       title: ToolCallEvent
-      description: $16f
+      description: $170
     ToolCallEventCallContext:
       properties:
         id:
@@ -39372,6 +39459,30 @@ components:
           - type: string
             pattern: ^#[0-9a-fA-F]{6}$
           - type: 'null'
+        darkPrimaryColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Primary colour when colorMode is auto and the widget shows dark. Empty = primaryColor.
+        darkBackgroundColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Panel background when colorMode is auto and the widget shows dark. Empty = built-in dark background.
+        darkTextColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Text colour when colorMode is auto and the widget shows dark. Empty = built-in dark text colour.
+        darkLinkColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Link colour when colorMode is auto and the widget shows dark. Empty = linkColor.
         colorMode:
           anyOf:
           - type: string
@@ -39421,6 +39532,18 @@ components:
           - type: string
             maxLength: 256
           - type: 'null'
+        showGreeting:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Show the greeting line above the welcome title (default true).
+        welcomeMessage:
+          anyOf:
+          - additionalProperties:
+              type: string
+            type: object
+          - type: 'null'
+          description: 'Automatic first message per language, {locale: text} (max 1000 characters each). Shown as the first assistant message; never stored or sent to the webhook. Whole-map replace.'
         replyTimeText:
           anyOf:
           - type: string
@@ -39588,6 +39711,26 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        darkPrimaryColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Primary colour when colorMode is auto and the widget shows dark. Empty = primaryColor.
+        darkBackgroundColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Panel background when colorMode is auto and the widget shows dark. Empty = built-in dark background.
+        darkTextColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Text colour when colorMode is auto and the widget shows dark. Empty = built-in dark text colour.
+        darkLinkColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Link colour when colorMode is auto and the widget shows dark. Empty = linkColor.
         colorMode:
           type: string
         position:
@@ -39624,6 +39767,15 @@ components:
           type: string
         welcomeSubtitle:
           type: string
+        showGreeting:
+          type: boolean
+          description: Show the greeting line above the welcome title (default true).
+          default: true
+        welcomeMessage:
+          additionalProperties:
+            type: string
+          type: object
+          description: 'Automatic first message per language, {locale: text}.'
         replyTimeText:
           type: string
         awayMessage:
@@ -40057,6 +40209,26 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        darkPrimaryColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Primary colour when colorMode is auto and the widget shows dark. Empty = primaryColor.
+        darkBackgroundColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Panel background when colorMode is auto and the widget shows dark. Empty = built-in dark background.
+        darkTextColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Text colour when colorMode is auto and the widget shows dark. Empty = built-in dark text colour.
+        darkLinkColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Link colour when colorMode is auto and the widget shows dark. Empty = linkColor.
         colorMode:
           type: string
         position:
@@ -40093,6 +40265,15 @@ components:
           type: string
         welcomeSubtitle:
           type: string
+        showGreeting:
+          type: boolean
+          description: Show the greeting line above the welcome title (default true).
+          default: true
+        welcomeMessage:
+          additionalProperties:
+            type: string
+          type: object
+          description: 'Automatic first message per language, {locale: text}.'
         replyTimeText:
           type: string
         awayMessage:
@@ -40300,6 +40481,30 @@ components:
           - type: string
             pattern: ^#[0-9a-fA-F]{6}$
           - type: 'null'
+        darkPrimaryColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Primary colour when colorMode is auto and the widget shows dark. Empty = primaryColor.
+        darkBackgroundColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Panel background when colorMode is auto and the widget shows dark. Empty = built-in dark background.
+        darkTextColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Text colour when colorMode is auto and the widget shows dark. Empty = built-in dark text colour.
+        darkLinkColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Link colour when colorMode is auto and the widget shows dark. Empty = linkColor.
         colorMode:
           anyOf:
           - type: string
@@ -40387,6 +40592,18 @@ components:
           - type: string
             maxLength: 256
           - type: 'null'
+        showGreeting:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Show the greeting line above the welcome title (default true).
+        welcomeMessage:
+          anyOf:
+          - additionalProperties:
+              type: string
+            type: object
+          - type: 'null'
+          description: 'Automatic first message per language, {locale: text} (max 1000 characters each). Shown as the first assistant message; never stored or sent to the webhook. Whole-map replace.'
         replyTimeText:
           anyOf:
           - type: string
