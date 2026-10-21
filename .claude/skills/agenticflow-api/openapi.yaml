@@ -3862,9 +3862,13 @@ paths:
 
         transcript, messages, timeline, post-call analysis, the log
 
-        archive, and the caller''s identity (number, name, metadata, SIP
+        archive, the caller''s identity (number, name, metadata, SIP
 
-        headers). A minimal record survives for billing and audit — id,
+        headers) and everything supplied with the call (variables,
+
+        overrides, metadata, call name, inline assistant), plus the error
+
+        text. A minimal record survives for billing and audit — id,
 
         timestamps, duration, end reason, assistant and phone number
 
@@ -14691,6 +14695,9 @@ components:
         model:
           type: string
           enum:
+          - claude-sonnet-5-5
+          - claude-haiku-5-5
+          - claude-opus-5-5
           - claude-sonnet-4-6
           - claude-haiku-4-5
           - claude-opus-4-6
@@ -14723,13 +14730,22 @@ components:
             const: ephemeral
           - type: 'null'
           description: Prompt caching mode. `ephemeral` enables the 5-minute default cache — major cost saver for repetitive system prompts. See https://docs.claude.com/en/build-with-claude/prompt-caching
+        reasoningEffort:
+          anyOf:
+          - type: string
+            enum:
+            - low
+            - medium
+            - high
+          - type: 'null'
+          description: 'Claude 5.5 only. How much the model may reason before answering: `low` (default, recommended for voice), `medium` or `high`. Higher values can answer later. Because reasoning counts against `maxTokens`, at least 2048 tokens are allowed per reply.'
       additionalProperties: false
       type: object
       required:
       - provider
       - model
       title: Anthropic
-      description: "Anthropic Claude LLM (pipeline mode).\n\nAnthropic's Messages API does not accept `top_p`,\n`frequency_penalty` or `presence_penalty`. Per Anthropic\ndocs, `top_p` and `temperature` are also mutually exclusive.\nSupported fields:\n\n  - `temperature` — 0-1\n  - `maxTokens`   — positive integer\n  - `topK`        — sample from the top-K most likely tokens\n  - `caching`     — prompt caching mode (`\"ephemeral\"` for the\n    5-min default cache; cuts token cost on repetitive prompts)"
+      description: "Anthropic Claude LLM (pipeline mode).\n\nAnthropic's Messages API does not accept `top_p`,\n`frequency_penalty` or `presence_penalty`. Per Anthropic\ndocs, `top_p` and `temperature` are also mutually exclusive.\nSupported fields:\n\n  - `temperature` — 0-1 (Claude 4.x only)\n  - `maxTokens`   — positive integer\n  - `topK`        — sample from the top-K most likely tokens (Claude 4.x only)\n  - `caching`     — prompt caching mode (`\"ephemeral\"` for the\n    5-min default cache; cuts token cost on repetitive prompts)\n  - `reasoningEffort` — Claude 5.5 only; see the field"
     ? ApiEnvelope_Annotated_Union_FunctionToolResponse__EndCallToolResponse__TransferCallToolResponse__VoicemailToolResponse__LiveEscalateToolResponse___FieldInfo_annotation_NoneType__required_True__discriminator__type____
     : properties:
         statusCode:
@@ -30100,19 +30116,33 @@ components:
             maximum: 90
             minimum: 0
           - type: 'null'
-          description: Days to retain workflow execution data (logs + indexed search results) for this organization. `0` = delete as soon as it's persisted. `null` = use the platform default (90 days), which is also the maximum — the workflow engine deletes its own execution data at that age, so a longer window cannot be honoured.
+          description: Days to retain workflow execution data (logs + indexed search results) for this organization. `0` = delete as soon as it's persisted. `null` = use the platform default (90 days), which is also the maximum — the workflow engine deletes its own execution data at that age, so a longer window cannot be honoured. Omit the field to leave it unchanged.
+        callRecordDays:
+          anyOf:
+          - type: integer
+            maximum: 365
+            minimum: 1
+          - type: 'null'
+          description: Delete call records automatically this many days after the call ended (1–365). A deleted call leaves the call list, call detail, filters and exports and holds no conversation or caller data; its billing record is kept. Applies to every call of the organization and to calls that are already older on the next hourly run. `null` = keep call records indefinitely. Omit the field to leave it unchanged.
       type: object
       title: OrgDataRetentionSchema
       description: 'Per-organization data retention policy (request + response).
 
 
-        Single user-facing knob (`workflowRunDays`) drives both the
+        `workflowRunDays` drives both the execution-data deletion and the
 
-        execution-data deletion and the search-index cleanup. Capped at 90
+        search-index cleanup. Capped at 90 days because the workflow
 
-        days because the workflow engine''s own global retention is 90 days
+        engine''s own global retention is 90 days — per-org overrides can
 
-        — per-org overrides can only SHORTEN that window.'
+        only SHORTEN that window. `callRecordDays` deletes whole call
+
+        records N days after the call ended.
+
+
+        On update, a field that is left out of the request keeps its stored
+
+        value; `null` clears it.'
     OrganizationAdminInvite:
       properties:
         email:
@@ -39537,13 +39567,18 @@ components:
           - type: boolean
           - type: 'null'
           description: Show the greeting line above the welcome title (default true).
+        welcomeMessageInHistory:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Save the automatic first message as the first message of each new conversation (in the visitor's language), so the webhook's conversationHistory, the inbox and exports include it. Off = display-only.
         welcomeMessage:
           anyOf:
           - additionalProperties:
               type: string
             type: object
           - type: 'null'
-          description: 'Automatic first message per language, {locale: text} (max 1000 characters each). Shown as the first assistant message; never stored or sent to the webhook. Whole-map replace.'
+          description: 'Automatic first message per language, {locale: text} (max 1000 characters each). Shown as the first assistant message. Stored in the conversation only when welcomeMessageInHistory is on. Whole-map replace.'
         replyTimeText:
           anyOf:
           - type: string
@@ -39771,6 +39806,10 @@ components:
           type: boolean
           description: Show the greeting line above the welcome title (default true).
           default: true
+        welcomeMessageInHistory:
+          type: boolean
+          description: The automatic first message is saved as the first message of each new conversation.
+          default: false
         welcomeMessage:
           additionalProperties:
             type: string
@@ -40269,6 +40308,10 @@ components:
           type: boolean
           description: Show the greeting line above the welcome title (default true).
           default: true
+        welcomeMessageInHistory:
+          type: boolean
+          description: The automatic first message is saved as the first message of each new conversation.
+          default: false
         welcomeMessage:
           additionalProperties:
             type: string
@@ -40597,13 +40640,18 @@ components:
           - type: boolean
           - type: 'null'
           description: Show the greeting line above the welcome title (default true).
+        welcomeMessageInHistory:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Save the automatic first message as the first message of each new conversation (in the visitor's language), so the webhook's conversationHistory, the inbox and exports include it. Off = display-only.
         welcomeMessage:
           anyOf:
           - additionalProperties:
               type: string
             type: object
           - type: 'null'
-          description: 'Automatic first message per language, {locale: text} (max 1000 characters each). Shown as the first assistant message; never stored or sent to the webhook. Whole-map replace.'
+          description: 'Automatic first message per language, {locale: text} (max 1000 characters each). Shown as the first assistant message. Stored in the conversation only when welcomeMessageInHistory is on. Whole-map replace.'
         replyTimeText:
           anyOf:
           - type: string
