@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **215 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-10-21).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **215 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-10-23).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -77,6 +77,14 @@ Same feed as the dashboard's Logs tab, as JSON. **Archive-only**: records exist 
 Filter (alle optional, können die Query nur **einschränken**, nie erweitern): `category` (`API`, `Agent`, `Tools`, `Knowledge Base`, `Lifecycle`, `Post-Processing`, `Media Server`, `Telephony`, `System`), `level` (`debug`…`critical`), `event_type` (z.B. `agent_state_changed`), `search` (Substring, max. 200 Zeichen), `limit` (1–10000, default 5000).
 
 Logs werden roh gespeichert (forensische Integrität), die Sanitization läuft beim Lesen: Provider-SDK-Spam und HTTP-Client-Internals werden verworfen; interne Scope-IDs, private IPs, Storage-URLs, Bearer-Tokens und Vendor-Namen redigiert. Rate-Limit pro API-Key/User — siehe `X-RateLimit-*` Response-Header (429 bei Überschreitung).
+
+## Warm-transfer briefing — `TransferPlan.speakFirstSummary`, and `message`/`timeout` are dead fields
+
+`TransferPlan` (nested under a `transferCall` tool's `destinations[].transferPlan`) has two fields that look live but do nothing: `message` and `timeout`. Both predate the current transfer design and are kept only so old configs still validate — they're silently ignored at runtime.
+
+- The line actually spoken to the caller comes from the **destination's own** `message` (`NumberDestination.message` / `SipDestination.message`), not `TransferPlan.message`.
+- The consultation timeout on a warm transfer isn't `TransferPlan.timeout` — ringing is bounded by `dialTimeout`, and once the destination answers, a fixed 180s bounds the briefing consultation regardless of what `timeout` is set to.
+- **`speakFirstSummary`** (warm mode only, default `true`): the AI opens with the briefing the instant the destination answers. Set it `false` when the destination side may answer before a human does (queue, call group, mobile forwarding) — the AI then stays silent until the person who picked up speaks first, briefs them in reply, and only connects the caller once they've heard the briefing and agreed.
 
 ## Edit template — `PATCH /messaging/channels/{channel_id}/templates/{template_id}`
 
@@ -173,3 +181,4 @@ Both `GET /billing/{orgs,tenants}/{id}/usage` and the `/usage/live` sibling repo
 - `DELETE /management/tenant/organizations/{org_id}` als reversibel behandeln — der Delete kaskadiert und entfernt die Ressourcen der Organisation.
 - Den `key` aus `POST .../organizations/{org_id}/api-keys` nicht sofort sichern — das volle Credential wird nur einmal in der Response zurückgegeben.
 - Die Rohdatei an `upload-logo`/`upload-header-bg`/`upload-launcher-icon` senden und ein fertiges Bild erwarten — die Endpoints liefern nur Metadaten + presigned URL; Upload per `PUT` und das Setzen des Widget-Felds sind separate Schritte.
+- `TransferPlan.message` oder `TransferPlan.timeout` setzen und eine Wirkung erwarten — beide Felder werden ignoriert; die Caller-Ansage kommt aus dem `message` der Destination, das Konsultations-Timeout ist bei warmen Transfers fest 180s (Ringing wird über `dialTimeout` begrenzt).

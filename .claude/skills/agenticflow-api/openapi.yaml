@@ -18653,7 +18653,7 @@ components:
             - auto
             - tool
           - type: 'null'
-          description: Update the KB retrieval mode. `null` resets to the platform default (pipeline → `auto`, realtime → `tool`). Tier-mode assistants ignore this field — the tier picker forces the value.
+          description: Update the KB retrieval mode. `null` resets to the platform default (pipeline → `auto`, realtime → `tool`). Standard / Gold tier assistants accept `auto` or `tool` (`null` → `auto`); Premium always uses `tool` and rejects this field.
         silenceTimeoutSeconds:
           anyOf:
           - type: number
@@ -31250,7 +31250,7 @@ components:
             - auto
             - tool
           - type: 'null'
-          description: 'How knowledge bases are surfaced to the LLM during a call. **`auto`** — per-turn pre-prompt injection. Every user turn embeds the utterance, searches every linked KB in parallel, and prepends the top chunks as a system message before the LLM call. Pipeline-mode only. Best for FAQ-style assistants where most user turns should hit the KB. **`tool`** — the LLM gets one function tool per linked KB and decides when to call it. Works in pipeline AND realtime mode. Best for multi-KB assistants and any realtime assistant. **`null`** (default) — derive at runtime: pipeline → `auto`, realtime → `tool`. Tier mode forces the value (Premium → `tool`, Standard / Gold → `auto`).'
+          description: 'How knowledge bases are surfaced to the LLM during a call. **`auto`** — per-turn pre-prompt injection. Every user turn embeds the utterance, searches every linked KB in parallel, and prepends the top chunks as a system message before the LLM call. Pipeline-mode only. Best for FAQ-style assistants where most user turns should hit the KB. **`tool`** — the LLM gets one function tool per linked KB and decides when to call it. Works in pipeline AND realtime mode. Best for multi-KB assistants and any realtime assistant. **`null`** (default) — derive at runtime: pipeline → `auto`, realtime → `tool`. In tier mode, Standard / Gold accept `auto` or `tool` (omitted → `auto`); Premium always uses `tool` and rejects an explicit value.'
         silenceTimeoutSeconds:
           type: number
           maximum: 600
@@ -31796,7 +31796,7 @@ components:
             - auto
             - tool
           - type: 'null'
-          description: 'How knowledge bases are surfaced to the LLM during a call. **`auto`** — per-turn pre-prompt injection. Every user turn embeds the utterance, searches every linked KB in parallel, and prepends the top chunks as a system message before the LLM call. Pipeline-mode only. Best for FAQ-style assistants where most user turns should hit the KB. **`tool`** — the LLM gets one function tool per linked KB and decides when to call it. Works in pipeline AND realtime mode. Best for multi-KB assistants and any realtime assistant. **`null`** (default) — derive at runtime: pipeline → `auto`, realtime → `tool`. Tier mode forces the value (Premium → `tool`, Standard / Gold → `auto`).'
+          description: 'How knowledge bases are surfaced to the LLM during a call. **`auto`** — per-turn pre-prompt injection. Every user turn embeds the utterance, searches every linked KB in parallel, and prepends the top chunks as a system message before the LLM call. Pipeline-mode only. Best for FAQ-style assistants where most user turns should hit the KB. **`tool`** — the LLM gets one function tool per linked KB and decides when to call it. Works in pipeline AND realtime mode. Best for multi-KB assistants and any realtime assistant. **`null`** (default) — derive at runtime: pipeline → `auto`, realtime → `tool`. In tier mode, Standard / Gold accept `auto` or `tool` (omitted → `auto`); Premium always uses `tool` and rejects an explicit value.'
         silenceTimeoutSeconds:
           type: number
           maximum: 600
@@ -32341,7 +32341,7 @@ components:
             - auto
             - tool
           - type: 'null'
-          description: Effective KB retrieval mode for this assistant. `null` for legacy assistants — the agent derives the mode from `type` at runtime. Tier-mode assistants always carry an explicit value.
+          description: Effective KB retrieval mode for this assistant. `null` for legacy assistants — the agent derives the mode from `type` at runtime. Tier-mode assistants always carry an explicit value (Premium `tool`; Standard / Gold the chosen value, default `auto`).
         silenceTimeoutSeconds:
           type: number
           default: 30
@@ -33531,7 +33531,7 @@ components:
             - auto
             - tool
           - type: 'null'
-          description: 'How knowledge bases are surfaced to the LLM during a call. **`auto`** — per-turn pre-prompt injection. Every user turn embeds the utterance, searches every linked KB in parallel, and prepends the top chunks as a system message before the LLM call. Pipeline-mode only. Best for FAQ-style assistants where most user turns should hit the KB. **`tool`** — the LLM gets one function tool per linked KB and decides when to call it. Works in pipeline AND realtime mode. Best for multi-KB assistants and any realtime assistant. **`null`** (default) — derive at runtime: pipeline → `auto`, realtime → `tool`. Tier mode forces the value (Premium → `tool`, Standard / Gold → `auto`).'
+          description: 'How knowledge bases are surfaced to the LLM during a call. **`auto`** — per-turn pre-prompt injection. Every user turn embeds the utterance, searches every linked KB in parallel, and prepends the top chunks as a system message before the LLM call. Pipeline-mode only. Best for FAQ-style assistants where most user turns should hit the KB. **`tool`** — the LLM gets one function tool per linked KB and decides when to call it. Works in pipeline AND realtime mode. Best for multi-KB assistants and any realtime assistant. **`null`** (default) — derive at runtime: pipeline → `auto`, realtime → `tool`. In tier mode, Standard / Gold accept `auto` or `tool` (omitted → `auto`); Premium always uses `tool` and rejects an explicit value.'
         silenceTimeoutSeconds:
           type: number
           maximum: 600
@@ -33789,7 +33789,7 @@ components:
             - auto
             - tool
           - type: 'null'
-          description: 'How knowledge bases are surfaced to the LLM during a call. **`auto`** — per-turn pre-prompt injection. Every user turn embeds the utterance, searches every linked KB in parallel, and prepends the top chunks as a system message before the LLM call. Pipeline-mode only. Best for FAQ-style assistants where most user turns should hit the KB. **`tool`** — the LLM gets one function tool per linked KB and decides when to call it. Works in pipeline AND realtime mode. Best for multi-KB assistants and any realtime assistant. **`null`** (default) — derive at runtime: pipeline → `auto`, realtime → `tool`. Tier mode forces the value (Premium → `tool`, Standard / Gold → `auto`).'
+          description: 'How knowledge bases are surfaced to the LLM during a call. **`auto`** — per-turn pre-prompt injection. Every user turn embeds the utterance, searches every linked KB in parallel, and prepends the top chunks as a system message before the LLM call. Pipeline-mode only. Best for FAQ-style assistants where most user turns should hit the KB. **`tool`** — the LLM gets one function tool per linked KB and decides when to call it. Works in pipeline AND realtime mode. Best for multi-KB assistants and any realtime assistant. **`null`** (default) — derive at runtime: pipeline → `auto`, realtime → `tool`. In tier mode, Standard / Gold accept `auto` or `tool` (omitted → `auto`); Premium always uses `tool` and rejects an explicit value.'
         silenceTimeoutSeconds:
           type: number
           maximum: 600
@@ -34046,7 +34046,7 @@ components:
             - auto
             - tool
           - type: 'null'
-          description: Effective KB retrieval mode for this assistant. `null` for legacy assistants — the agent derives the mode from `type` at runtime. Tier-mode assistants always carry an explicit value.
+          description: Effective KB retrieval mode for this assistant. `null` for legacy assistants — the agent derives the mode from `type` at runtime. Tier-mode assistants always carry an explicit value (Premium `tool`; Standard / Gold the chosen value, default `auto`).
         silenceTimeoutSeconds:
           type: number
           default: 30
@@ -38336,10 +38336,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-          description: Message to play for the destination party.
+          description: Not used. Kept for compatibility; the line spoken to the caller is the destination's own `message`.
         timeout:
           type: integer
-          description: Warm-transfer consultation timeout (seconds).
+          description: Not used. Kept for compatibility. On a warm transfer `dialTimeout` bounds the ringing; once the destination answers, a fixed 180 s bounds the consultation.
           default: 60
         dialTimeout:
           type: integer
@@ -38364,6 +38364,10 @@ components:
           - type: string
           - type: 'null'
           description: Warm-mode only. Exact sentence spoken to the caller while the destination is dialled. When set it is spoken verbatim; when empty the assistant improvises one from an internal instruction, so the wording varies between calls and occasionally no sentence is produced at all. Set this when the hold announcement must be deterministic - for example when a per-destination message already announces the transfer and a second, improvised sentence would repeat it. Supports {{variable}} substitution.
+        speakFirstSummary:
+          type: boolean
+          description: 'Warm-mode only. `true` (default): the AI starts the briefing as soon as the destination answers. `false`: the AI says nothing until the person who answered speaks, then briefs them in reply, and connects the caller only after they have heard the briefing and agreed. Use `false` when the destination''s phone system answers before a person does - queues, call groups, forwarding to a mobile - so the briefing would otherwise be spoken while it is still ringing.'
+          default: true
       additionalProperties: false
       type: object
       title: TransferPlan
