@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **215 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-10-23).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **215 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-10-29).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -162,6 +162,19 @@ Both `GET /billing/{orgs,tenants}/{id}/usage` and the `/usage/live` sibling repo
 
 `413`/`415` come back for an oversized or wrong-mimetype request at step 1, before any presigned URL is issued.
 
+## Conversation hand-off — `assignedToUserId` / `ignoreAssignment` (409 `conversation_assigned`)
+
+When a team member takes a conversation over in the dashboard, `ConversationResponse.assignedToUserId` (+ `assignedToName`) is set and the same field is carried on the `messaging-*` webhook events.
+
+- While assigned, `POST /messaging/messages` with a **non-template** send authenticated by an API key is refused with `409 conversation_assigned` — this stops an automated bot from talking over the human who took over.
+- Template sends and sends made from the dashboard itself are **never** refused, assignment or not.
+- Pass `ignoreAssignment: true` (default `false`) on the send request to force it through anyway — for automations that must reach the contact regardless of a human takeover.
+- `PATCH /messaging/conversations/{conversation_id}` (`ConversationPatchRequest`) can set or clear `assignedToUserId` directly.
+
+## Call recording start time — `CallRecording.startedAt`
+
+`startedAt` on a call's `recording` object (`CallResponse.recording`, same shape in the `end-of-call-report` webhook) is only set when the recording began **mid-call** — e.g. at a transfer into an assistant that records. It's `null` when the recording covers the whole call from the start, so don't treat `null` as "unknown start time."
+
 ## Common mistakes
 
 - Guessing field names from memory instead of grepping `openapi.yaml` — schemas here are the source of truth.
@@ -182,3 +195,5 @@ Both `GET /billing/{orgs,tenants}/{id}/usage` and the `/usage/live` sibling repo
 - Den `key` aus `POST .../organizations/{org_id}/api-keys` nicht sofort sichern — das volle Credential wird nur einmal in der Response zurückgegeben.
 - Die Rohdatei an `upload-logo`/`upload-header-bg`/`upload-launcher-icon` senden und ein fertiges Bild erwarten — die Endpoints liefern nur Metadaten + presigned URL; Upload per `PUT` und das Setzen des Widget-Felds sind separate Schritte.
 - `TransferPlan.message` oder `TransferPlan.timeout` setzen und eine Wirkung erwarten — beide Felder werden ignoriert; die Caller-Ansage kommt aus dem `message` der Destination, das Konsultations-Timeout ist bei warmen Transfers fest 180s (Ringing wird über `dialTimeout` begrenzt).
+- Nach einer manuellen Übernahme (`assignedToUserId` gesetzt) weiter automatisiert per API-Key senden und `409 conversation_assigned` übersehen — Template-Sends sind davon ausgenommen; für normale Sends `ignoreAssignment: true` setzen, falls die Automation trotzdem senden soll.
+- `recording.startedAt` als fehlend/Fehler interpretieren — `null` heißt nur, dass die Aufnahme den gesamten Call abdeckt; gesetzt ist es nur, wenn die Aufnahme erst bei einem Transfer mitten im Call begann.

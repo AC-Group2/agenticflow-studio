@@ -1065,7 +1065,7 @@ paths:
       tags:
       - Assistant
       summary: Update Assistant
-      description: $164
+      description: $16a
       operationId: updateAssistant
       parameters:
       - name: assistantId
@@ -4603,7 +4603,7 @@ paths:
       tags:
       - Chat
       summary: Send message
-      description: $165
+      description: $16b
       operationId: sendChatMessage
       requestBody:
         content:
@@ -4751,7 +4751,7 @@ paths:
       tags:
       - Chat
       summary: Get Chat Session Log Archive
-      description: $166
+      description: $16c
       operationId: getChatSessionLogs
       parameters:
       - name: sessionId
@@ -5895,7 +5895,7 @@ paths:
       tags:
       - Audio Asset
       summary: Delete an Audio Asset
-      description: $167
+      description: $16d
       operationId: deleteAudioAsset
       parameters:
       - name: assetId
@@ -13091,7 +13091,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Download an invoice as a JSON package
-      description: $168
+      description: $16e
       operationId: downloadBillingInvoiceJson
       parameters:
       - name: invoice_id
@@ -13140,7 +13140,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Confirm an offline payment landed → credits the MC ledger
-      description: $169
+      description: $16f
       operationId: markInvoicePaid
       parameters:
       - name: invoice_id
@@ -14060,7 +14060,7 @@ paths:
       tags:
       - Billing - Plan Switch
       summary: Switch an organization's plan
-      description: $16a
+      description: $170
       operationId: switchOrgPlan
       parameters:
       - name: org_id
@@ -18233,7 +18233,7 @@ components:
           description: Surface a routing error. The message is logged; the call falls back to the assigned assistant.
       type: object
       title: AssistantRequestResponse
-      description: $16b
+      description: $171
     AssistantSortBy:
       type: string
       enum:
@@ -20650,7 +20650,7 @@ components:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: $16c
+          description: $172
           examples:
           - firstMessage: Hallo! Hier ist die SpringSale-Hotline.
             model:
@@ -20944,7 +20944,7 @@ components:
       - role
       - content
       title: CallMessageSchema
-      description: $16d
+      description: $173
     CallMonitorURLs:
       properties:
         controlUrl:
@@ -21011,6 +21011,12 @@ components:
           - type: string
           - type: 'null'
           description: Customer-only mono recording.
+        startedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          description: When the recording began. Present only when it began during the call — at a transfer to an assistant that records — so it covers the call from this moment on; absent when the recording covers the whole call.
       type: object
       title: CallRecording
       description: 'Recording artifacts produced after the call ends.
@@ -21048,6 +21054,12 @@ components:
           - type: string
           - type: 'null'
           description: Customer-only audio track.
+        startedAt:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          description: When the recording began. Set only when it began during the call — at a transfer to an assistant that records — so it covers the call from this moment on; null when the recording covers the whole call.
       additionalProperties: false
       type: object
       title: CallRecording
@@ -23583,7 +23595,7 @@ components:
       - role
       - content
       title: ConversationMessage
-      description: $16e
+      description: $174
     ConversationNote:
       properties:
         id:
@@ -23663,6 +23675,14 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+          description: The team member who has taken the conversation over. While set, automated non-template sends (API key) are refused with `409 conversation_assigned` unless they set `ignoreAssignment`.
+        assignedToName:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Display name of `assignedToUserId` — the email when a workspace user has no name; null when the user can't be resolved or is a platform administrator without a name.
+          examples:
+          - Renata Example
         tags:
           items:
             type: string
@@ -24790,7 +24810,7 @@ components:
       - role
       - message
       title: EndOfCallMessage
-      description: $16f
+      description: $175
     EndOfCallReportEvent:
       properties:
         id:
@@ -28883,6 +28903,11 @@ components:
           - type: string
           - type: 'null'
           description: '`open` / `expired` / `not_applicable`.'
+        assignedToUserId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Set while a team member has taken the conversation over. An automated non-template reply (API key) is then refused with `409 conversation_assigned` unless it sets `ignoreAssignment`, so a workflow can stop here. Null when unassigned.
       type: object
       required:
       - eventId
@@ -35359,6 +35384,10 @@ components:
           - customerName: Jane Doe
             orderId: ORD-42
             pickupTime: 3:00 PM
+        ignoreAssignment:
+          type: boolean
+          description: When a team member has taken a conversation over (it is assigned and not closed), non-template sends made with an API key are refused with `409 conversation_assigned` so an automated reply never talks over them. Set `true` to send anyway — for automations that must reach the contact regardless. Template sends and sends from the dashboard are never refused.
+          default: false
       additionalProperties: true
       type: object
       required:
@@ -37784,7 +37813,7 @@ components:
       - call
       - toolCalls
       title: ToolCallEvent
-      description: $170
+      description: $176
     ToolCallEventCallContext:
       properties:
         id:
