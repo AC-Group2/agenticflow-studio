@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **215 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-10-29).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **218 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-10-31).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -15,7 +15,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 ## Finding the right endpoint
 
-1. **[endpoints.md](endpoints.md)** — all 215 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page; fetch `https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) instead of the linked URL to get clean markdown via curl/WebFetch.
+1. **[endpoints.md](endpoints.md)** — all 218 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page; fetch `https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) instead of the linked URL to get clean markdown via curl/WebFetch.
 2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.2 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
 3. **Live doc index:** https://docs.agenticflow.studio/llms.txt lists every doc page including guides (messaging billing/quickstart, SIP trunk setup/troubleshooting, widget identity/installation, changelog).
 
@@ -23,7 +23,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 | Category | Count | Covers |
 |---|---|---|
-| Assistant | 8 | CRUD + version history/snapshots |
+| Assistant | 11 | CRUD + version history/snapshots + Guardrails availability/summary/test |
 | Tool | 8 | CRUD + versions; function tools call their own `server.url` |
 | Call | 7 | Create/list/get/update/delete calls + live mid-call agent update + sanitized log archive |
 | Monitor | 5 | Live-call listen/takeover tokens, control messages |
@@ -62,6 +62,17 @@ Changes a *running* assistant's instructions and/or tools while the caller is st
 - Returns `200` once the running agent confirms the change; `202` if it was dispatched but not confirmed within the ack window (may still land — check the call timeline via `activeToolNames`/`requestId` on the response, or the call's event log).
 - Returns `409` if the call isn't in progress, or if the assistant's model doesn't support live updates.
 - Applying a change may require reconnecting to the upstream model (~1s, `reconnected: true` in the response) — the caller's audio leg itself is unaffected.
+
+## Guardrails — availability / summary / try-a-sentence
+
+`GuardrailsConfigSchema` (nested on the assistant) checks every sentence the assistant is about to say before it's spoken — for `competitors`, `figures`, `facts`, `attribution`. Available on Standard, Gold and Custom pipeline assistants; off by default.
+
+- **`enabled: true` with `checks` omitted defaults every check to `monitor`** (log findings, say it anyway), not `enforce`. Enforcement per check must be set explicitly.
+- **`POST /assistant/{assistantId}/guardrails/test` ("Try a Sentence") always simulates `enforce`**, regardless of the assistant's saved per-check mode — so a `replaced`/`dropped` result here does **not** mean a live call with that check on `monitor` would actually replace or drop the sentence; it only shows what enforcing *would* do. Nothing from this call is saved.
+- Pass `guardrails` in the body to try unsaved settings instead of the live config; `useSavedSettings` (default `true`) is forced to `false` whenever `guardrails` is sent.
+- `complete: false` in the response means a check timed out — on a real call that sentence would've gone out unchecked (mirrors `failedOpen` in the summary). `truncated: true` means only the first 5 sentences of the input were checked.
+- **`GET /assistant/guardrails/availability`** is a platform/plan gate — `available: false` means hide the Guardrails UI entirely here, not just "off for this assistant."
+- **`GET /assistant/{assistantId}/guardrails/summary`** (`days`, 1–90, default 7) returns counts only (`hits`, `replaced`, `dropped`, `failedOpen`, per-check breakdown) — no transcripts or sentence text; cross-reference `GET /call/{callId}/logs` for the actual wording of a specific finding.
 
 ## Call log archive — `GET /call/{callId}/logs`
 
@@ -197,3 +208,4 @@ When a team member takes a conversation over in the dashboard, `ConversationResp
 - `TransferPlan.message` oder `TransferPlan.timeout` setzen und eine Wirkung erwarten — beide Felder werden ignoriert; die Caller-Ansage kommt aus dem `message` der Destination, das Konsultations-Timeout ist bei warmen Transfers fest 180s (Ringing wird über `dialTimeout` begrenzt).
 - Nach einer manuellen Übernahme (`assignedToUserId` gesetzt) weiter automatisiert per API-Key senden und `409 conversation_assigned` übersehen — Template-Sends sind davon ausgenommen; für normale Sends `ignoreAssignment: true` setzen, falls die Automation trotzdem senden soll.
 - `recording.startedAt` als fehlend/Fehler interpretieren — `null` heißt nur, dass die Aufnahme den gesamten Call abdeckt; gesetzt ist es nur, wenn die Aufnahme erst bei einem Transfer mitten im Call begann.
+- Ein `replaced`/`dropped` Ergebnis von `POST .../guardrails/test` als Beweis für das Live-Verhalten eines Calls nehmen — der Test simuliert immer `enforce`; steht der jeweilige Check beim Assistant auf `monitor`, würde der Satz im echten Call trotzdem gesprochen.

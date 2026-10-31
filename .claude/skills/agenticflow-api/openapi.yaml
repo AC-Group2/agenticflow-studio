@@ -663,6 +663,175 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /assistant/guardrails/availability:
+    get:
+      tags:
+      - Assistant
+      summary: Get Guardrails Availability
+      description: Whether Guardrails can be used here (when `false`, hide the setting), and the built-in lines.
+      operationId: getGuardrailsAvailability
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_GuardrailsAvailabilityResponse_'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /assistant/{assistantId}/guardrails/summary:
+    get:
+      tags:
+      - Assistant
+      summary: Get Guardrails Summary
+      description: 'Guardrails results of this assistant''s calls over the last `days` days.
+
+
+        Counts only: how many calls had guardrails on, how many had findings, and
+
+        how many sentences were replaced or left out.'
+      operationId: getAssistantGuardrailsSummary
+      parameters:
+      - name: assistantId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The assistant's unique id.
+          title: Assistantid
+        description: The assistant's unique id.
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 90
+          minimum: 1
+          description: Window length in days (1-90).
+          default: 7
+          title: Days
+        description: Window length in days (1-90).
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_GuardrailsSummaryResponse_'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /assistant/{assistantId}/guardrails/test:
+    post:
+      tags:
+      - Assistant
+      summary: Try a Sentence
+      description: 'Check one sentence the way a call would, and show what the caller would hear.
+
+
+        Sources are the assistant''s prompt, the knowledge base passages that
+
+        match the sentence, and the optional `callerTurn`. Every check is
+
+        treated as `enforce` so the result shows what enforcing would do.
+
+        Nothing is saved.'
+      operationId: testAssistantGuardrails
+      parameters:
+      - name: assistantId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The assistant's unique id.
+          title: Assistantid
+        description: The assistant's unique id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuardrailsTestRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_GuardrailsTestResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Unprocessable entity — semantic validation failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '429':
+          description: Too many requests — rate limit exceeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '503':
+          description: Error 503.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /assistant:
     get:
       tags:
@@ -1065,7 +1234,7 @@ paths:
       tags:
       - Assistant
       summary: Update Assistant
-      description: $16a
+      description: $16e
       operationId: updateAssistant
       parameters:
       - name: assistantId
@@ -3508,6 +3677,20 @@ paths:
           description: When true, only calls with at least one recording track. When false, only calls with no recording.
           title: Hasrecording
         description: When true, only calls with at least one recording track. When false, only calls with no recording.
+      - name: guardrail
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - hits
+            - replaced
+            - active
+            type: string
+          - type: 'null'
+          description: Guardrails filter. `hits` = calls with at least one finding; `replaced` = calls where a sentence was replaced or left out; `active` = calls where guardrails were on.
+          title: Guardrail
+        description: Guardrails filter. `hits` = calls with at least one finding; `replaced` = calls where a sentence was replaced or left out; `active` = calls where guardrails were on.
       - name: minDurationSeconds
         in: query
         required: false
@@ -4603,7 +4786,7 @@ paths:
       tags:
       - Chat
       summary: Send message
-      description: $16b
+      description: $16f
       operationId: sendChatMessage
       requestBody:
         content:
@@ -4751,7 +4934,7 @@ paths:
       tags:
       - Chat
       summary: Get Chat Session Log Archive
-      description: $16c
+      description: $170
       operationId: getChatSessionLogs
       parameters:
       - name: sessionId
@@ -5895,7 +6078,7 @@ paths:
       tags:
       - Audio Asset
       summary: Delete an Audio Asset
-      description: $16d
+      description: $171
       operationId: deleteAudioAsset
       parameters:
       - name: assetId
@@ -13091,7 +13274,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Download an invoice as a JSON package
-      description: $16e
+      description: $172
       operationId: downloadBillingInvoiceJson
       parameters:
       - name: invoice_id
@@ -13140,7 +13323,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Confirm an offline payment landed → credits the MC ledger
-      description: $16f
+      description: $173
       operationId: markInvoicePaid
       parameters:
       - name: invoice_id
@@ -14060,7 +14243,7 @@ paths:
       tags:
       - Billing - Plan Switch
       summary: Switch an organization's plan
-      description: $170
+      description: $174
       operationId: switchOrgPlan
       parameters:
       - name: org_id
@@ -15555,6 +15738,75 @@ components:
       - data
       - message
       title: ApiEnvelope[FolderResponse]
+    ApiEnvelope_GuardrailsAvailabilityResponse_:
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code (mirrors the response status).
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsAvailabilityResponse'
+          - type: 'null'
+          description: Response payload.
+        message:
+          type: string
+          description: Human-readable status message.
+        success:
+          type: boolean
+          description: Always `true` for this envelope.
+          default: true
+      type: object
+      required:
+      - statusCode
+      - data
+      - message
+      title: ApiEnvelope[GuardrailsAvailabilityResponse]
+    ApiEnvelope_GuardrailsSummaryResponse_:
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code (mirrors the response status).
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsSummaryResponse'
+          - type: 'null'
+          description: Response payload.
+        message:
+          type: string
+          description: Human-readable status message.
+        success:
+          type: boolean
+          description: Always `true` for this envelope.
+          default: true
+      type: object
+      required:
+      - statusCode
+      - data
+      - message
+      title: ApiEnvelope[GuardrailsSummaryResponse]
+    ApiEnvelope_GuardrailsTestResponse_:
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code (mirrors the response status).
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsTestResponse'
+          - type: 'null'
+          description: Response payload.
+        message:
+          type: string
+          description: Human-readable status message.
+        success:
+          type: boolean
+          description: Always `true` for this envelope.
+          default: true
+      type: object
+      required:
+      - statusCode
+      - data
+      - message
+      title: ApiEnvelope[GuardrailsTestResponse]
     ApiEnvelope_KnowledgeBaseResponse_:
       properties:
         statusCode:
@@ -18233,7 +18485,7 @@ components:
           description: Surface a routing error. The message is logged; the call falls back to the assigned assistant.
       type: object
       title: AssistantRequestResponse
-      description: $171
+      description: $175
     AssistantSortBy:
       type: string
       enum:
@@ -18739,6 +18991,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitoringConfigSchema'
           - type: 'null'
+        guardrails:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsConfigSchema'
+          - type: 'null'
+          description: Replace the guardrails settings (the whole object). `null` removes them; omit the field to leave them unchanged. Not available on Premium or realtime assistants.
         textProcessing:
           anyOf:
           - $ref: '#/components/schemas/TextProcessingSchema'
@@ -20650,7 +20907,7 @@ components:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: $172
+          description: $176
           examples:
           - firstMessage: Hallo! Hier ist die SpringSale-Hotline.
             model:
@@ -20944,7 +21201,7 @@ components:
       - role
       - content
       title: CallMessageSchema
-      description: $173
+      description: $177
     CallMonitorURLs:
       properties:
         controlUrl:
@@ -21206,11 +21463,13 @@ components:
             - $ref: '#/components/schemas/TimelineKbRetrievalEvent'
             - $ref: '#/components/schemas/TimelineHandoffEvent'
             - $ref: '#/components/schemas/TimelineErrorEvent'
+            - $ref: '#/components/schemas/TimelineGuardrailEvent'
             discriminator:
               propertyName: type
               mapping:
                 agent_handoff: '#/components/schemas/TimelineHandoffEvent'
                 error: '#/components/schemas/TimelineErrorEvent'
+                guardrail: '#/components/schemas/TimelineGuardrailEvent'
                 handoff: '#/components/schemas/TimelineHandoffEvent'
                 kb_retrieval: '#/components/schemas/TimelineKbRetrievalEvent'
                 message: '#/components/schemas/TimelineMessageEvent'
@@ -21250,6 +21509,11 @@ components:
           items:
             $ref: '#/components/schemas/KbRetrievalSummaryItemSchema'
           type: array
+        guardrailSummary:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailSummarySchema'
+          - type: 'null'
+          description: Guardrails roll-up (counts only). Absent when guardrails were never active.
         analysis:
           anyOf:
           - $ref: '#/components/schemas/CallAnalysisSchema'
@@ -23595,7 +23859,7 @@ components:
       - role
       - content
       title: ConversationMessage
-      description: $174
+      description: $178
     ConversationNote:
       properties:
         id:
@@ -24810,7 +25074,7 @@ components:
       - role
       - message
       title: EndOfCallMessage
-      description: $175
+      description: $179
     EndOfCallReportEvent:
       properties:
         id:
@@ -24863,6 +25127,11 @@ components:
             $ref: '#/components/schemas/KbRetrievalSummaryItem'
           type: array
           description: Denormalized list of every knowledge-base retrieval.
+        guardrailSummary:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailSummarySchema'
+          - type: 'null'
+          description: Guardrails roll-up of the call — counts only. Omitted when guardrails were never active on the call.
         recording:
           anyOf:
           - $ref: '#/components/schemas/CallRecording-Input'
@@ -26517,6 +26786,340 @@ components:
       - voiceId
       title: GroqTTS
       description: Groq Orpheus TTS — voice locks to one of two models. Factory auto-derives model.
+    GuardrailChecksSchema:
+      properties:
+        competitors:
+          type: string
+          enum:
+          - 'off'
+          - monitor
+          - enforce
+          description: 'The assistant names, recommends or judges another company. Enforce: the caller hears the competitor line instead and the rest of that reply is left out.'
+          default: monitor
+        figures:
+          type: string
+          enum:
+          - 'off'
+          - monitor
+          - enforce
+          description: 'A price, date, time, phone number or other figure that is not in the assistant''s sources (prompt, knowledge base, tool results, what the caller said). Enforce: the caller hears the fact line instead.'
+          default: monitor
+        facts:
+          type: string
+          enum:
+          - 'off'
+          - monitor
+          - enforce
+          description: 'A factual claim that the assistant''s sources do not support. Enforce: the caller hears the fact line instead.'
+          default: monitor
+        attribution:
+          type: string
+          enum:
+          - 'off'
+          - monitor
+          description: The assistant says the caller said or wanted something they did not say. Recorded only (`off` or `monitor`) — never changes what the caller hears.
+          default: monitor
+      type: object
+      title: GuardrailChecksSchema
+      description: 'What happens for each check: `off`, `monitor` (record only — the caller
+
+        hears exactly what they would hear without guardrails) or `enforce` (the
+
+        sentence is replaced or left out).'
+    GuardrailFixedRateSchema:
+      properties:
+        from:
+          type: string
+          pattern: ^[A-Za-z]{3}$
+          description: ISO currency code, e.g. `USD`.
+        to:
+          type: string
+          pattern: ^[A-Za-z]{3}$
+          description: ISO currency code, e.g. `AED`.
+        rate:
+          type: number
+          exclusiveMinimum: 0
+          description: How many `to` one `from` is worth, e.g. `3.6725`.
+      type: object
+      required:
+      - from
+      - to
+      - rate
+      title: GuardrailFixedRateSchema
+      description: 'A fixed exchange rate the assistant may use: 1 `from` = `rate` `to`.'
+    GuardrailLinesSchema:
+      properties:
+        competitor:
+          additionalProperties:
+            type: string
+          type: object
+          description: Spoken instead of a sentence that mentions another company.
+        fact:
+          additionalProperties:
+            type: string
+          type: object
+          description: Spoken instead of a sentence with a figure or claim that is not in the sources.
+      type: object
+      title: GuardrailLinesSchema
+      description: 'What the caller hears instead of a checked sentence, keyed by language code
+
+        (`de`, `en`, `ar` …). Languages without a line use a built-in default.'
+    GuardrailSummarySchema:
+      properties:
+        active:
+          type: boolean
+          description: Guardrails were on for at least part of the call.
+          default: false
+        modes:
+          additionalProperties:
+            type: string
+          type: object
+          description: Mode of every check (`off` / `monitor` / `enforce`) on the last guarded assistant.
+        assistantIds:
+          items:
+            type: string
+          type: array
+          description: Every assistant whose Guardrails were on in this call (handoffs included).
+        hits:
+          type: integer
+          description: Sentences that would change (monitor) or did change (enforce) what the caller hears.
+          default: 0
+        byCheck:
+          additionalProperties:
+            type: integer
+          type: object
+          description: Findings per check (one sentence can have several).
+        replaced:
+          type: integer
+          description: Sentences the caller heard a replacement line for.
+          default: 0
+        dropped:
+          type: integer
+          description: Sentences that were left out.
+          default: 0
+        failedOpen:
+          type: integer
+          description: Sentences spoken unchecked because a check could not finish in time.
+          default: 0
+      additionalProperties: true
+      type: object
+      title: GuardrailSummarySchema
+      description: 'Guardrails roll-up of one call — counts only, never conversation text.
+
+
+        Absent on calls where guardrails were never active.'
+    GuardrailsAvailabilityResponse:
+      properties:
+        available:
+          type: boolean
+          description: '`false` when Guardrails are not offered here — hide the setting.'
+        defaultLines:
+          additionalProperties:
+            additionalProperties:
+              type: string
+            type: object
+          type: object
+          description: 'Built-in lines the caller hears instead, per kind and language code: `competitor` (`{company}` is replaced by the company name), `competitorNoCompany` (used when no company name is set) and `fact`.'
+      type: object
+      required:
+      - available
+      title: GuardrailsAvailabilityResponse
+      description: Whether Guardrails can be used on this platform.
+    GuardrailsConfigSchema:
+      properties:
+        enabled:
+          type: boolean
+          description: Master switch. `false` (or no `guardrails` object) = no checks at all.
+          default: false
+        checks:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailChecksSchema'
+          - type: 'null'
+          description: Mode per check. When `enabled` is `true` and this is omitted, every check is set to `monitor`.
+        companyName:
+          anyOf:
+          - type: string
+            maxLength: 120
+          - type: 'null'
+          description: Your company name as the assistant says it. Used in the built-in replacement lines.
+        competitors:
+          items:
+            type: string
+          type: array
+          maxItems: 100
+          description: Company names the assistant must never mention — include common misheard spellings. Up to 100 entries, 80 characters each; duplicates are removed.
+        allowedTerms:
+          items:
+            type: string
+          type: array
+          maxItems: 100
+          description: Look-alikes that ARE allowed even though they contain a competitor name (a street, a place, one of your own products).
+        ownProducts:
+          items:
+            type: string
+          type: array
+          maxItems: 200
+          description: Your own products and brands — never counted as another company.
+        lines:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailLinesSchema'
+          - type: 'null'
+          description: What the caller hears instead of a replaced sentence, per language.
+        fixedRates:
+          items:
+            $ref: '#/components/schemas/GuardrailFixedRateSchema'
+          type: array
+          maxItems: 10
+          description: Exchange rates the assistant may use to convert amounts from its sources.
+        ignoreNumbers:
+          items:
+            type: string
+          type: array
+          maxItems: 50
+          description: Literal texts that are never checked as figures (e.g. `Branch 12`). Up to 40 characters each.
+      type: object
+      title: GuardrailsConfigSchema
+      description: 'Guardrails: every sentence the assistant is about to say is checked first.
+
+
+        Available on Standard, Gold and Custom pipeline assistants. Off by default.
+
+        Saving replaces the whole object; `null` removes it.'
+    GuardrailsSummaryResponse:
+      properties:
+        days:
+          type: integer
+          description: Window length in days.
+        calls:
+          type: integer
+          description: Calls the assistant handled in the window.
+        guardedCalls:
+          type: integer
+          description: Calls where guardrails were on.
+        callsWithHits:
+          type: integer
+          description: Calls with at least one finding.
+        hits:
+          type: integer
+          description: Findings in total.
+        byCheck:
+          additionalProperties:
+            type: integer
+          type: object
+          description: Findings per check (`competitors`, `figures`, `facts`, `attribution`).
+        replaced:
+          type: integer
+          description: Sentences the caller heard a replacement line for.
+        dropped:
+          type: integer
+          description: Sentences that were left out.
+        failedOpen:
+          type: integer
+          description: Sentences spoken unchecked because a check could not finish in time.
+      type: object
+      required:
+      - days
+      - calls
+      - guardedCalls
+      - callsWithHits
+      - hits
+      - replaced
+      - dropped
+      - failedOpen
+      title: GuardrailsSummaryResponse
+      description: Guardrails results of one assistant over the last `days` days (counts only).
+    GuardrailsTestFinding:
+      properties:
+        check:
+          type: string
+          enum:
+          - competitors
+          - figures
+          - facts
+          - attribution
+        rule:
+          type: string
+          description: Short rule code.
+        label:
+          type: string
+          description: Plain name of the finding.
+        detail:
+          type: string
+          description: Why, in plain words.
+        score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: How certain the check was, 0-1 (only for some checks).
+      type: object
+      required:
+      - check
+      - rule
+      - label
+      - detail
+      title: GuardrailsTestFinding
+    GuardrailsTestRequest:
+      properties:
+        sentence:
+          type: string
+          maxLength: 600
+          minLength: 1
+          description: What the assistant would say.
+        callerTurn:
+          anyOf:
+          - type: string
+            maxLength: 600
+          - type: 'null'
+          description: 'Optional: what the caller said just before.'
+        useSavedSettings:
+          type: boolean
+          description: Use the assistant's saved guardrails settings when `guardrails` is not sent. `false` requires `guardrails`.
+          default: true
+        guardrails:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsConfigSchema'
+          - type: 'null'
+          description: Unsaved settings to try. When sent, they are used instead of the saved ones.
+      additionalProperties: false
+      type: object
+      required:
+      - sentence
+      title: GuardrailsTestRequest
+      description: 'Try one sentence against an assistant''s guardrails.
+
+
+        The sentence is checked against the assistant''s prompt and the knowledge
+
+        base passages that match it, with every check treated as `enforce`.'
+    GuardrailsTestResponse:
+      properties:
+        result:
+          type: string
+          enum:
+          - pass
+          - replaced
+          - dropped
+          description: '`pass` = the caller hears the sentence; `replaced` / `dropped` otherwise.'
+        spoken:
+          type: string
+          description: What the caller would hear (empty when left out).
+        findings:
+          items:
+            $ref: '#/components/schemas/GuardrailsTestFinding'
+          type: array
+        complete:
+          type: boolean
+          description: '`false` when a check could not finish in time — on a call the sentence would have been spoken unchecked.'
+          default: true
+        truncated:
+          type: boolean
+          description: '`true` when the text was longer than 5 sentences — only the first 5 were checked.'
+          default: false
+      type: object
+      required:
+      - result
+      - spoken
+      title: GuardrailsTestResponse
     HTTPValidationError:
       properties:
         detail:
@@ -31355,6 +31958,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitoringConfigSchema'
           - type: 'null'
+        guardrails:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsConfigSchema'
+          - type: 'null'
+          description: Check every sentence before the assistant says it (Standard, Gold and Custom pipeline assistants). Omit or `null` = off.
         textProcessing:
           anyOf:
           - $ref: '#/components/schemas/TextProcessingSchema'
@@ -31901,6 +32509,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitoringConfigSchema'
           - type: 'null'
+        guardrails:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsConfigSchema'
+          - type: 'null'
+          description: Check every sentence before the assistant says it (Standard, Gold and Custom pipeline assistants). Omit or `null` = off.
         textProcessing:
           anyOf:
           - $ref: '#/components/schemas/TextProcessingSchema'
@@ -32437,6 +33050,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitoringConfigSchema'
           - type: 'null'
+        guardrails:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsConfigSchema'
+          - type: 'null'
+          description: Guardrails settings. `null` = off.
         textProcessing:
           anyOf:
           - $ref: '#/components/schemas/TextProcessingSchema'
@@ -33636,6 +34254,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitoringConfigSchema'
           - type: 'null'
+        guardrails:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsConfigSchema'
+          - type: 'null'
+          description: Check every sentence before the assistant says it (Standard, Gold and Custom pipeline assistants). Omit or `null` = off.
         textProcessing:
           anyOf:
           - $ref: '#/components/schemas/TextProcessingSchema'
@@ -33894,6 +34517,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitoringConfigSchema'
           - type: 'null'
+        guardrails:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsConfigSchema'
+          - type: 'null'
+          description: Check every sentence before the assistant says it (Standard, Gold and Custom pipeline assistants). Omit or `null` = off.
         textProcessing:
           anyOf:
           - $ref: '#/components/schemas/TextProcessingSchema'
@@ -34142,6 +34770,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/MonitoringConfigSchema'
           - type: 'null'
+        guardrails:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsConfigSchema'
+          - type: 'null'
+          description: Guardrails settings. `null` = off.
         textProcessing:
           anyOf:
           - $ref: '#/components/schemas/TextProcessingSchema'
@@ -37561,6 +38194,115 @@ components:
       additionalProperties: true
       type: object
       title: TimelineErrorEvent
+    TimelineGuardrailEvent:
+      properties:
+        timestamp:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: Unix epoch seconds.
+        type:
+          type: string
+          const: guardrail
+          default: guardrail
+        action:
+          type: string
+          enum:
+          - active
+          - logged
+          - replaced
+          - dropped
+          - failed_open
+        check:
+          anyOf:
+          - type: string
+            enum:
+            - competitors
+            - figures
+            - facts
+            - attribution
+          - type: 'null'
+        rule:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short rule code, e.g. `name_list`.
+        severity:
+          anyOf:
+          - type: string
+            enum:
+            - block
+            - log
+          - type: 'null'
+          description: '`block` = would be replaced or left out under enforce; `log` = noted only.'
+        mode:
+          anyOf:
+          - type: string
+            enum:
+            - 'off'
+            - monitor
+            - enforce
+          - type: 'null'
+        text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The sentence as the assistant wrote it.
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: What the caller heard instead (empty when the sentence was left out).
+        detail:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Why, in plain words.
+        score:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: How certain the check was, 0-1 (only for some checks).
+        latencyMs:
+          anyOf:
+          - type: integer
+          - type: 'null'
+        seq:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: Sentence number within the call; findings of the same sentence share it.
+        modes:
+          anyOf:
+          - additionalProperties:
+              type: string
+            type: object
+          - type: 'null'
+          description: 'On `active` events: the mode of every check.'
+        assistantId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'On `active` events: the assistant whose Guardrails are on.'
+      additionalProperties: true
+      type: object
+      required:
+      - action
+      title: TimelineGuardrailEvent
+      description: 'A guardrails finding on a sentence the assistant was about to say.
+
+
+        `action`: `active` (guardrails switched on for this assistant — carries
+
+        `modes` only), `logged` (recorded only; the caller heard the sentence),
+
+        `replaced` (the caller heard `message` instead), `dropped` (the
+
+        sentence was left out) or `failed_open` (the check could not finish in
+
+        time and the sentence was spoken unchecked). Sentences that pass are not
+
+        recorded.'
     TimelineHandoffEvent:
       properties:
         timestamp:
@@ -37813,7 +38555,7 @@ components:
       - call
       - toolCalls
       title: ToolCallEvent
-      description: $176
+      description: $17a
     ToolCallEventCallContext:
       properties:
         id:

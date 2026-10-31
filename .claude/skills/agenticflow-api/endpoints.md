@@ -5,15 +5,18 @@ Base URL: `https://api.agenticflow.studio` — Auth: `X-Api-Key: <workspace key>
 Full request/response schemas: grep `openapi.yaml` in this skill directory for the path (e.g. `grep -n "  /assistant:" openapi.yaml`). Linked pages are rendered HTML; fetch `https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) instead of the linked URL to get clean markdown via curl/WebFetch.
 
 
-## Assistant (8 endpoints)
+## Assistant (11 endpoints)
 
 | Method | Path | Summary |
 |---|---|---|
 | GET | `/assistant` | [List Assistants](https://docs.agenticflow.studio/docs/api-reference/voice/assistants/listAssistants) |
 | POST | `/assistant` | [Create Assistant](https://docs.agenticflow.studio/docs/api-reference/voice/assistants/createAssistant) |
+| GET | `/assistant/guardrails/availability` | [Get Guardrails Availability](https://docs.agenticflow.studio/docs/api-reference/voice/guardrails/getGuardrailsAvailability) |
 | DELETE | `/assistant/{assistantId}` | [Delete Assistant](https://docs.agenticflow.studio/docs/api-reference/voice/assistants/deleteAssistant) |
 | GET | `/assistant/{assistantId}` | [Get Assistant](https://docs.agenticflow.studio/docs/api-reference/voice/assistants/getAssistant) |
 | PATCH | `/assistant/{assistantId}` | [Update Assistant](https://docs.agenticflow.studio/docs/api-reference/voice/assistants/updateAssistant) |
+| GET | `/assistant/{assistantId}/guardrails/summary` | [Get Guardrails Summary](https://docs.agenticflow.studio/docs/api-reference/voice/guardrails/getAssistantGuardrailsSummary) |
+| POST | `/assistant/{assistantId}/guardrails/test` | [Try a Sentence](https://docs.agenticflow.studio/docs/api-reference/voice/guardrails/testAssistantGuardrails) |
 | GET | `/assistant/{assistantId}/versions` | [List versions](https://docs.agenticflow.studio/docs/api-reference/voice/assistants/listAssistantVersions) |
 | GET | `/assistant/{assistantId}/versions/{versionId}` | [Get Assistant Version](https://docs.agenticflow.studio/docs/api-reference/voice/assistants/getAssistantVersion) |
 | PATCH | `/assistant/{assistantId}/versions/{versionId}` | [Update version](https://docs.agenticflow.studio/docs/api-reference/voice/tools/updateToolVersion) |
