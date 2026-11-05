@@ -235,7 +235,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 |---|---|---|
 | POST | `/messaging/media` | [Upload media](https://docs.agenticflow.studio/docs/api-reference/messaging/media/uploadMessagingMedia) |
 
-## Widget - Admin (36 endpoints)
+## Widget - Admin (37 endpoints)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -275,6 +275,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | POST | `/widget/admin/widgets/{widget_id}/upload-header-bg` | [Upload header image](https://docs.agenticflow.studio/docs/api-reference/widgets/widgets/widgetAdminUploadHeaderBg) |
 | POST | `/widget/admin/widgets/{widget_id}/upload-launcher-icon` | [Upload launcher icon](https://docs.agenticflow.studio/docs/api-reference/widgets/widgets/widgetAdminUploadLauncherIcon) |
 | POST | `/widget/admin/widgets/{widget_id}/upload-logo` | [Upload logo](https://docs.agenticflow.studio/docs/api-reference/widgets/widgets/widgetAdminUploadLogo) |
+| POST | `/widget/admin/widgets/{widget_id}/upload-reply-avatar` | [Upload reply avatar](https://docs.agenticflow.studio/docs/api-reference/widgets/widgets/widgetAdminUploadReplyAvatar) |
 
 ## Folders (5 endpoints)
 

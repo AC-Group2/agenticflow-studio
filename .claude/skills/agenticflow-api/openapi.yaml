@@ -1234,7 +1234,7 @@ paths:
       tags:
       - Assistant
       summary: Update Assistant
-      description: $16e
+      description: $16f
       operationId: updateAssistant
       parameters:
       - name: assistantId
@@ -4786,7 +4786,7 @@ paths:
       tags:
       - Chat
       summary: Send message
-      description: $16f
+      description: $170
       operationId: sendChatMessage
       requestBody:
         content:
@@ -4934,7 +4934,7 @@ paths:
       tags:
       - Chat
       summary: Get Chat Session Log Archive
-      description: $170
+      description: $171
       operationId: getChatSessionLogs
       parameters:
       - name: sessionId
@@ -6078,7 +6078,7 @@ paths:
       tags:
       - Audio Asset
       summary: Delete an Audio Asset
-      description: $171
+      description: $172
       operationId: deleteAudioAsset
       parameters:
       - name: assetId
@@ -11341,6 +11341,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /widget/admin/widgets/{widget_id}/upload-reply-avatar:
+    post:
+      tags:
+      - Widget - Admin
+      summary: Upload reply avatar
+      operationId: widgetAdminUploadReplyAvatar
+      parameters:
+      - name: widget_id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          title: Widget Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BrandAssetUploadRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_BrandAssetUploadResponse_'
+        '400':
+          description: Invalid request — malformed body or failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '413':
+          description: Error 413.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '415':
+          description: Error 415.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /widget/admin/widgets/{widget_id}/articles:
     post:
       tags:
@@ -13274,7 +13343,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Download an invoice as a JSON package
-      description: $172
+      description: $173
       operationId: downloadBillingInvoiceJson
       parameters:
       - name: invoice_id
@@ -13323,7 +13392,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Confirm an offline payment landed → credits the MC ledger
-      description: $173
+      description: $174
       operationId: markInvoicePaid
       parameters:
       - name: invoice_id
@@ -14243,7 +14312,7 @@ paths:
       tags:
       - Billing - Plan Switch
       summary: Switch an organization's plan
-      description: $174
+      description: $175
       operationId: switchOrgPlan
       parameters:
       - name: org_id
@@ -18212,6 +18281,27 @@ components:
             - unknown
           - type: 'null'
           description: Why the call ended.
+        endedReasonDetail:
+          anyOf:
+          - type: string
+            enum:
+            - busy
+            - declined
+            - unavailable
+            - no-answer
+            - invalid-number
+            - rejected
+            - auth-failed
+            - carrier-error
+            - line-unreachable
+            - failed
+          - type: 'null'
+          description: 'Outbound calls that were never answered (`endedReason` `no-answer`): what happened to the dial attempt. `busy`, `declined`, `unavailable` and `no-answer` (rang out) mean the person''s phone was reached; `invalid-number` means the number does not exist; `line-unreachable` (the phone line / trunk did not respond), `carrier-error` (5xx), `rejected` (the network refused the call, e.g. 403) and `auth-failed` (the line rejected its login details) point at the phone line, not the person; `failed` is anything else. `endedReason` stays `no-answer` for all of them. `null` when unknown and on every other call. Only on the `end-of-call-report` event, and only when known.'
+        sipStatusCode:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: Final SIP response code of a never-answered outbound call's dial attempt (e.g. `486`, `404`, `503`). `null` when no final response arrived (`line-unreachable`, rang out) and on every other call. Only on the `end-of-call-report` event, and only when known.
         durationSeconds:
           anyOf:
           - type: integer
@@ -18282,7 +18372,7 @@ components:
       required:
       - id
       title: AssistantCallObject
-      description: "Call snapshot embedded in every assistant webhook event.\n\nField-presence semantics (driven by the dispatcher's\n`model_dump(exclude_unset=True)` — only fields the dispatcher\nexplicitly assigns appear on the wire):\n\n  - `id`, `assistantId`, `status`, `startedAt` — present\n    on every event.\n  - `type`, `phoneNumber`, `customer` — present on every\n    event when the agent has them in scope. `type` discriminates\n    inbound / outbound / web; `phoneNumber` carries the record\n    id, E.164 number, and configured name; `customer` echoes the\n    call's stored customer record.\n  - `monitor` — only on `status-update` while the call is\n    in-progress and listen / control are enabled on the assistant.\n  - `endedAt`, `endedReason`, `durationSeconds` — only on\n    `end-of-call-report` (and on `status-update` when status\n    transitions to `ended`).\n  - `sipHeaders` — only on SIP calls; surfaces the carrier's\n    custom attribute headers."
+      description: $176
     AssistantDestination:
       properties:
         type:
@@ -18485,7 +18575,7 @@ components:
           description: Surface a routing error. The message is logged; the call falls back to the assigned assistant.
       type: object
       title: AssistantRequestResponse
-      description: $175
+      description: $177
     AssistantSortBy:
       type: string
       enum:
@@ -18561,9 +18651,10 @@ components:
             - $ref: '#/components/schemas/AwsNovaSonic'
             - $ref: '#/components/schemas/OpenAIRealtime'
             - $ref: '#/components/schemas/AzureOpenAIRealtime'
+            - $ref: '#/components/schemas/OpenAILive'
+            - $ref: '#/components/schemas/AzureOpenAILive'
             - $ref: '#/components/schemas/DeepslateRealtime'
             - $ref: '#/components/schemas/GoogleRealtime'
-            - $ref: '#/components/schemas/OpenAILive'
             - $ref: '#/components/schemas/PhonicRealtime'
             - $ref: '#/components/schemas/UltravoxRealtime'
             - $ref: '#/components/schemas/XaiRealtime'
@@ -18574,6 +18665,7 @@ components:
                 aws-bedrock: '#/components/schemas/AwsBedrock'
                 aws-nova-sonic: '#/components/schemas/AwsNovaSonic'
                 azure-openai: '#/components/schemas/AzureOpenai'
+                azure-openai-live: '#/components/schemas/AzureOpenAILive'
                 azure-openai-realtime: '#/components/schemas/AzureOpenAIRealtime'
                 baseten: '#/components/schemas/Baseten'
                 cerebras: '#/components/schemas/Cerebras'
@@ -19443,6 +19535,135 @@ components:
       - provider
       title: AwsTranscribe
       description: AWS Transcribe streaming STT — multi-cred.
+    AzureGPTLiveResponsesOptions:
+      properties:
+        model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Name of the Responses deployment in your Azure resource that runs the tools, for example a gpt-5.x deployment. Required.
+        instructions:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Instructions for the backend model, distinct from the voice model''s. The assistant''s own system prompt decides WHEN work is handed over — OpenAI calls that the delegation guidance — while this governs how the work is done once it has been. Measured: ''always call the tool'' placed HERE does not make the voice model delegate; the same sentence in the system prompt does.'
+        reasoningEffort:
+          anyOf:
+          - type: string
+            enum:
+            - minimal
+            - low
+            - medium
+            - high
+            - none
+            - xhigh
+          - type: 'null'
+          description: How hard the backend model thinks before answering a tool turn. Which values are accepted is PER MODEL — an unsupported value is a hard 400 on every tool-bearing turn.
+        textVerbosity:
+          anyOf:
+          - type: string
+            enum:
+            - low
+            - medium
+            - high
+          - type: 'null'
+          description: How long the backend model's answers run. Vendor default when unset.
+        serviceTier:
+          anyOf:
+          - type: string
+            enum:
+            - auto
+            - default
+            - flex
+            - priority
+          - type: 'null'
+          description: Latency/cost tier for the backend model. `priority` measurably shortens a tool turn; `flex` is OpenAI's BATCH tier — it is documented for 'non-production or lower priority tasks' and can answer 429 Resource Unavailable, which on a live call is dead air mid-conversation. Vendor default when unset.
+        parallelToolCalls:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Whether the backend model may call several tools at once. Turn it off when your tools must run strictly in order. Vendor default when unset.
+        maxOutputTokens:
+          anyOf:
+          - type: integer
+            minimum: 16
+          - type: 'null'
+          description: 'Upper bound on one backend response; at least 16 — the service''s own floor, quoted from its refusal of 15: ''Expected a value >= 16''. Set it too low and a tool answer is truncated mid-sentence before the voice model ever reads it.'
+      additionalProperties: false
+      type: object
+      title: AzureGPTLiveResponsesOptions
+      description: 'The Responses deployment that delegated work — every tool call — runs on.
+
+
+        Distinct from the voice model: it does the reasoning and calls the tools,
+
+        while the voice model speaks. `model` is REQUIRED and names a Responses
+
+        deployment in the same Azure resource (for example a gpt-5.x deployment).
+
+        Any other key left unset is not sent, and the service''s own default
+
+        applies.
+
+
+        `tool_choice` is not configurable: it is set per turn (`none` while a
+
+        tool is executing), so a stored value would conflict with it.'
+    AzureOpenAILive:
+      properties:
+        provider:
+          type: string
+          const: azure-openai-live
+        model:
+          anyOf:
+          - type: string
+            const: gpt-live-1
+          - type: 'null'
+        deployment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Name of your gpt-live-1 deployment. Defaults to `gpt-live-1` when omitted — deployments are commonly named after the model.
+        voice:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: A built-in GPT-Live voice name. `marin` when unset.
+        systemPrompt:
+          anyOf:
+          - type: string
+          - type: 'null'
+        responsesOptions:
+          anyOf:
+          - $ref: '#/components/schemas/AzureGPTLiveResponsesOptions'
+          - type: 'null'
+        maxSessionDuration:
+          anyOf:
+          - type: number
+            exclusiveMinimum: 0
+          - type: 'null'
+          description: Seconds before the connection is recycled. Vendor default when unset.
+      additionalProperties: false
+      type: object
+      required:
+      - provider
+      title: AzureOpenAILive
+      description: 'Azure OpenAI GPT-Live — full-duplex speech-to-speech in your own Azure resource.
+
+
+        Needs two deployments in the resource behind your Azure OpenAI key: a
+
+        `gpt-live-1` deployment for the voice (`deployment`, default
+
+        `gpt-live-1`) and a Responses deployment that runs the tools
+
+        (`responsesOptions.model`, required). The model owns turn-taking, so
+
+        there is no temperature, turn-detection, speed or transcription setting.
+
+        Work is always handed to the Responses deployment — the alternative would
+
+        leave no tool able to run, including the one that ends the call.'
     AzureOpenAIRealtime:
       properties:
         provider:
@@ -20436,7 +20657,7 @@ components:
       title: BrandAssetUploadRequest
       description: 'Body for POST /widget/admin/widgets/{id}/upload-logo,
 
-        /upload-header-bg and /upload-launcher-icon.
+        /upload-header-bg, /upload-launcher-icon and /upload-reply-avatar.
 
 
         Send the file''s metadata; the response carries a short-lived upload
@@ -20447,6 +20668,8 @@ components:
 
         `workspaceLogoUrl` / `headerBackgroundImageUrl` / `launcherIconUrl`
 
+        / `replyAvatarUrl`
+
         with the widget update endpoint.'
     BrandAssetUploadResponse:
       properties:
@@ -20456,6 +20679,7 @@ components:
           - logo
           - header-bg
           - launcher-icon
+          - reply-avatar
         presignedPutUrl:
           type: string
         presignedExpiresAt:
@@ -20907,7 +21131,7 @@ components:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: $176
+          description: $178
           examples:
           - firstMessage: Hallo! Hier ist die SpringSale-Hotline.
             model:
@@ -21201,7 +21425,7 @@ components:
       - role
       - content
       title: CallMessageSchema
-      description: $177
+      description: $179
     CallMonitorURLs:
       properties:
         controlUrl:
@@ -21386,6 +21610,27 @@ components:
             - tier-not-allowed
             - unknown
           - type: 'null'
+        endedReasonDetail:
+          anyOf:
+          - type: string
+            enum:
+            - busy
+            - declined
+            - unavailable
+            - no-answer
+            - invalid-number
+            - rejected
+            - auth-failed
+            - carrier-error
+            - line-unreachable
+            - failed
+          - type: 'null'
+          description: 'Outbound calls that were never answered (`endedReason` `no-answer`): what happened to the dial attempt. `busy`, `declined`, `unavailable` and `no-answer` (rang out) mean the person''s phone was reached; `invalid-number` means the number does not exist; `line-unreachable` (the phone line / trunk did not respond), `carrier-error` (5xx), `rejected` (the network refused the call, e.g. 403) and `auth-failed` (the line rejected its login details) point at the phone line, not the person; `failed` is anything else. `endedReason` stays `no-answer` for all of them. `null` when unknown and on every other call.'
+        sipStatusCode:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: Final SIP response code of a never-answered outbound call's dial attempt (e.g. `486`, `404`, `503`). `null` when no final response arrived (`line-unreachable`, rang out) and on every other call.
         conversationOccurred:
           anyOf:
           - type: boolean
@@ -23859,7 +24104,7 @@ components:
       - role
       - content
       title: ConversationMessage
-      description: $178
+      description: $17a
     ConversationNote:
       properties:
         id:
@@ -25074,7 +25319,7 @@ components:
       - role
       - message
       title: EndOfCallMessage
-      description: $179
+      description: $17b
     EndOfCallReportEvent:
       properties:
         id:
@@ -30325,6 +30570,7 @@ components:
         model:
           type: string
           enum:
+          - gpt-6.1-terra
           - gpt-6-sol
           - gpt-6-luna
           - gpt-5.6-terra
@@ -30482,6 +30728,7 @@ components:
           type: string
           enum:
           - gpt-6-astra
+          - gpt-6.1-terra
           - gpt-6-sol
           - gpt-6-luna
           - gpt-5.6-luna
@@ -34329,9 +34576,10 @@ components:
             - $ref: '#/components/schemas/AwsNovaSonic'
             - $ref: '#/components/schemas/OpenAIRealtime'
             - $ref: '#/components/schemas/AzureOpenAIRealtime'
+            - $ref: '#/components/schemas/OpenAILive'
+            - $ref: '#/components/schemas/AzureOpenAILive'
             - $ref: '#/components/schemas/DeepslateRealtime'
             - $ref: '#/components/schemas/GoogleRealtime'
-            - $ref: '#/components/schemas/OpenAILive'
             - $ref: '#/components/schemas/PhonicRealtime'
             - $ref: '#/components/schemas/UltravoxRealtime'
             - $ref: '#/components/schemas/XaiRealtime'
@@ -34339,6 +34587,7 @@ components:
               propertyName: provider
               mapping:
                 aws-nova-sonic: '#/components/schemas/AwsNovaSonic'
+                azure-openai-live: '#/components/schemas/AzureOpenAILive'
                 azure-openai-realtime: '#/components/schemas/AzureOpenAIRealtime'
                 deepslate-realtime: '#/components/schemas/DeepslateRealtime'
                 google-realtime: '#/components/schemas/GoogleRealtime'
@@ -34592,9 +34841,10 @@ components:
             - $ref: '#/components/schemas/AwsNovaSonic'
             - $ref: '#/components/schemas/OpenAIRealtime'
             - $ref: '#/components/schemas/AzureOpenAIRealtime'
+            - $ref: '#/components/schemas/OpenAILive'
+            - $ref: '#/components/schemas/AzureOpenAILive'
             - $ref: '#/components/schemas/DeepslateRealtime'
             - $ref: '#/components/schemas/GoogleRealtime'
-            - $ref: '#/components/schemas/OpenAILive'
             - $ref: '#/components/schemas/PhonicRealtime'
             - $ref: '#/components/schemas/UltravoxRealtime'
             - $ref: '#/components/schemas/XaiRealtime'
@@ -34602,6 +34852,7 @@ components:
               propertyName: provider
               mapping:
                 aws-nova-sonic: '#/components/schemas/AwsNovaSonic'
+                azure-openai-live: '#/components/schemas/AzureOpenAILive'
                 azure-openai-realtime: '#/components/schemas/AzureOpenAIRealtime'
                 deepslate-realtime: '#/components/schemas/DeepslateRealtime'
                 google-realtime: '#/components/schemas/GoogleRealtime'
@@ -34855,9 +35106,10 @@ components:
             - $ref: '#/components/schemas/AwsNovaSonic'
             - $ref: '#/components/schemas/OpenAIRealtime'
             - $ref: '#/components/schemas/AzureOpenAIRealtime'
+            - $ref: '#/components/schemas/OpenAILive'
+            - $ref: '#/components/schemas/AzureOpenAILive'
             - $ref: '#/components/schemas/DeepslateRealtime'
             - $ref: '#/components/schemas/GoogleRealtime'
-            - $ref: '#/components/schemas/OpenAILive'
             - $ref: '#/components/schemas/PhonicRealtime'
             - $ref: '#/components/schemas/UltravoxRealtime'
             - $ref: '#/components/schemas/XaiRealtime'
@@ -34865,6 +35117,7 @@ components:
               propertyName: provider
               mapping:
                 aws-nova-sonic: '#/components/schemas/AwsNovaSonic'
+                azure-openai-live: '#/components/schemas/AzureOpenAILive'
                 azure-openai-realtime: '#/components/schemas/AzureOpenAIRealtime'
                 deepslate-realtime: '#/components/schemas/DeepslateRealtime'
                 google-realtime: '#/components/schemas/GoogleRealtime'
@@ -37674,6 +37927,13 @@ components:
         ivrDetection:
           type: boolean
           default: false
+        ivrSilencePromptSeconds:
+          anyOf:
+          - type: number
+            maximum: 120
+            minimum: 0
+          - type: 'null'
+          description: Only used when `ivrDetection` is on. Seconds of silence (caller and assistant both quiet) before the assistant speaks again on its own. `0` turns this off, so the assistant waits silently, for example when asked to hold; pressing keys in phone menus keeps working. Unset uses the platform default (5 seconds).
       type: object
       title: TelephonySchema
     TemplateComponent:
@@ -38555,7 +38815,7 @@ components:
       - call
       - toolCalls
       title: ToolCallEvent
-      description: $17a
+      description: $17c
     ToolCallEventCallContext:
       properties:
         id:
@@ -40288,6 +40548,18 @@ components:
             pattern: ^#[0-9a-fA-F]{6}$
           - type: 'null'
           description: Link colour when colorMode is auto and the widget shows dark. Empty = linkColor.
+        replyBubbleColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Background of the replies the visitor receives. Text turns dark or light automatically to stay readable. Empty = built-in light grey (dark grey in dark mode).
+        darkReplyBubbleColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Reply bubble colour when colorMode is auto and the widget shows dark. Empty = built-in dark grey.
         colorMode:
           anyOf:
           - type: string
@@ -40322,6 +40594,13 @@ components:
           - type: string
             maxLength: 64
           - type: 'null'
+        headerBackgroundImageOpacity:
+          anyOf:
+          - type: integer
+            maximum: 100
+            minimum: 0
+          - type: 'null'
+          description: How strongly the header background image shows, 0 (hidden) to 100 (full strength at the top). Default 65.
         workspaceName:
           anyOf:
           - type: string
@@ -40541,6 +40820,16 @@ components:
           - type: string
           - type: 'null'
           description: Link colour when colorMode is auto and the widget shows dark. Empty = linkColor.
+        replyBubbleColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Background of the replies the visitor receives. Text turns dark or light automatically to stay readable. Empty = built-in light grey (dark grey in dark mode).
+        darkReplyBubbleColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Reply bubble colour when colorMode is auto and the widget shows dark. Empty = built-in dark grey.
         colorMode:
           type: string
         position:
@@ -40565,6 +40854,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        replyAvatarUrl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Avatar next to each reply in the conversation. Empty = workspaceLogoUrl.
         workspaceName:
           type: string
         headerBackgroundType:
@@ -40573,6 +40867,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        headerBackgroundImageOpacity:
+          type: integer
+          description: How strongly the header background image shows, 0 (hidden) to 100 (full strength at the top). Default 65.
+          default: 65
         welcomeTitle:
           type: string
         welcomeSubtitle:
@@ -41043,6 +41341,16 @@ components:
           - type: string
           - type: 'null'
           description: Link colour when colorMode is auto and the widget shows dark. Empty = linkColor.
+        replyBubbleColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Background of the replies the visitor receives. Text turns dark or light automatically to stay readable. Empty = built-in light grey (dark grey in dark mode).
+        darkReplyBubbleColor:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Reply bubble colour when colorMode is auto and the widget shows dark. Empty = built-in dark grey.
         colorMode:
           type: string
         position:
@@ -41067,6 +41375,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        replyAvatarUrl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Avatar next to each reply in the conversation. Empty = workspaceLogoUrl.
         workspaceName:
           type: string
         headerBackgroundType:
@@ -41075,6 +41388,10 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        headerBackgroundImageOpacity:
+          type: integer
+          description: How strongly the header background image shows, 0 (hidden) to 100 (full strength at the top). Default 65.
+          default: 65
         welcomeTitle:
           type: string
         welcomeSubtitle:
@@ -41323,6 +41640,18 @@ components:
             pattern: ^#[0-9a-fA-F]{6}$
           - type: 'null'
           description: Link colour when colorMode is auto and the widget shows dark. Empty = linkColor.
+        replyBubbleColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Background of the replies the visitor receives. Text turns dark or light automatically to stay readable. Empty = built-in light grey (dark grey in dark mode).
+        darkReplyBubbleColor:
+          anyOf:
+          - type: string
+            pattern: ^#[0-9a-fA-F]{6}$
+          - type: 'null'
+          description: Reply bubble colour when colorMode is auto and the widget shows dark. Empty = built-in dark grey.
         colorMode:
           anyOf:
           - type: string
@@ -41383,6 +41712,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        replyAvatarUrl:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Avatar next to each reply in the conversation. Empty = workspaceLogoUrl.
         workspaceName:
           anyOf:
           - type: string
@@ -41400,6 +41734,13 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        headerBackgroundImageOpacity:
+          anyOf:
+          - type: integer
+            maximum: 100
+            minimum: 0
+          - type: 'null'
+          description: How strongly the header background image shows, 0 (hidden) to 100 (full strength at the top). Default 65.
         welcomeTitle:
           anyOf:
           - type: string
