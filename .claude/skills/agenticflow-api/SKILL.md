@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **219 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-11-05).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **219 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-11-07).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -65,14 +65,15 @@ Changes a *running* assistant's instructions and/or tools while the caller is st
 
 ## Guardrails — availability / summary / try-a-sentence
 
-`GuardrailsConfigSchema` (nested on the assistant) checks every sentence the assistant is about to say before it's spoken — for `competitors`, `figures`, `facts`, `attribution`. Available on Standard, Gold and Custom pipeline assistants; off by default.
+`GuardrailsConfigSchema` (nested on the assistant) checks every sentence the assistant is about to say or send before it goes out — for `competitors`, `figures`, `facts`, `attribution`. Available on Standard, Gold and Custom pipeline assistants; off by default. Applies to both calls **and chat sessions** (same config, same checks) — a `ChatSessionResponse` carries its own `guardrailSummary` roll-up (`GuardrailSummarySchema`) alongside the per-reply `guardrails` events on each `TimelineMessage`.
 
-- **`enabled: true` with `checks` omitted defaults every check to `monitor`** (log findings, say it anyway), not `enforce`. Enforcement per check must be set explicitly.
-- **`POST /assistant/{assistantId}/guardrails/test` ("Try a Sentence") always simulates `enforce`**, regardless of the assistant's saved per-check mode — so a `replaced`/`dropped` result here does **not** mean a live call with that check on `monitor` would actually replace or drop the sentence; it only shows what enforcing *would* do. Nothing from this call is saved.
+- **`enabled: true` with `checks` omitted defaults every check to `monitor`** (log findings, say/send it anyway), not `enforce`. Enforcement per check must be set explicitly.
+- **`POST /assistant/{assistantId}/guardrails/test` ("Try a Sentence") always simulates `enforce`**, regardless of the assistant's saved per-check mode — so a `replaced`/`dropped` result here does **not** mean a live call or chat with that check on `monitor` would actually replace or drop the sentence; it only shows what enforcing *would* do. Nothing from this call is saved.
 - Pass `guardrails` in the body to try unsaved settings instead of the live config; `useSavedSettings` (default `true`) is forced to `false` whenever `guardrails` is sent.
-- `complete: false` in the response means a check timed out — on a real call that sentence would've gone out unchecked (mirrors `failedOpen` in the summary). `truncated: true` means only the first 5 sentences of the input were checked.
+- `complete: false` in the response means a check timed out — on a real call/chat that sentence would've gone out unchecked (mirrors `failedOpen` in the summary). `truncated: true` means only the first 5 sentences of the input were checked.
 - **`GET /assistant/guardrails/availability`** is a platform/plan gate — `available: false` means hide the Guardrails UI entirely here, not just "off for this assistant."
-- **`GET /assistant/{assistantId}/guardrails/summary`** (`days`, 1–90, default 7) returns counts only (`hits`, `replaced`, `dropped`, `failedOpen`, per-check breakdown) — no transcripts or sentence text; cross-reference `GET /call/{callId}/logs` for the actual wording of a specific finding.
+- **`GET /assistant/{assistantId}/guardrails/summary`** (`days`, 1–90, default 7) returns call counts (`hits`, `replaced`, `dropped`, `failedOpen`, per-check breakdown) at the top level **plus a nested `chat` object** (`GuardrailsChatSummary`) with the same shape for the assistant's chat sessions in the window — counts only, no transcripts or sentence text; cross-reference `GET /call/{callId}/logs` or the chat session's timeline for the actual wording of a specific finding.
+- **`GET /chat/sessions`** takes a `guardrail` filter (`hits` | `replaced` | `active`) to narrow the list to sessions with findings, with a replaced/dropped sentence, or that just had guardrails on.
 
 ## Call log archive — `GET /call/{callId}/logs`
 
@@ -96,6 +97,14 @@ Logs werden roh gespeichert (forensische Integrität), die Sanitization läuft b
 - The line actually spoken to the caller comes from the **destination's own** `message` (`NumberDestination.message` / `SipDestination.message`), not `TransferPlan.message`.
 - The consultation timeout on a warm transfer isn't `TransferPlan.timeout` — ringing is bounded by `dialTimeout`, and once the destination answers, a fixed 180s bounds the briefing consultation regardless of what `timeout` is set to.
 - **`speakFirstSummary`** (warm mode only, default `true`): the AI opens with the briefing the instant the destination answers. Set it `false` when the destination side may answer before a human does (queue, call group, mobile forwarding) — the AI then stays silent until the person who picked up speaks first, briefs them in reply, and only connects the caller once they've heard the briefing and agreed.
+
+## In-session handoff first message — `handoffFirstMessageMode`
+
+Controls what an assistant says the instant it **takes over a call from another assistant** (an in-session handoff, not a transfer) — separate from `firstMessageMode`, which only governs the very start of the call. Three modes: `assistant-speaks-first` (speaks `handoffFirstMessage`, or `firstMessage` when that's empty), `assistant-speaks-first-with-model-generated-message` (one line generated from `handoffModelGeneratedInstruction`, so it continues the conversation instead of greeting again), `assistant-waits-for-user` (says nothing until the caller speaks).
+
+- Left unset, a handoff falls back to the **start-of-call** behavior (`firstMessageMode`) — which defaults to a generic "Generate a brief greeting to start the conversation" model instruction. That's why a handoff target used to open with a throwaway greeting even when its system prompt asked for a specific question or silence; set `handoffFirstMessageMode` explicitly to fix that instead of fighting it via the system prompt.
+- An empty string on `handoffFirstMessage` / `handoffModelGeneratedInstruction` clears the override and falls back to `firstMessage` / the built-in instruction, respectively — it does not mean "say nothing" (use `assistant-waits-for-user` for that).
+- These fields are delivered **alongside** the system prompt on handoff, not instead of it.
 
 ## Edit template — `PATCH /messaging/channels/{channel_id}/templates/{template_id}`
 
@@ -209,3 +218,5 @@ When a team member takes a conversation over in the dashboard, `ConversationResp
 - Nach einer manuellen Übernahme (`assignedToUserId` gesetzt) weiter automatisiert per API-Key senden und `409 conversation_assigned` übersehen — Template-Sends sind davon ausgenommen; für normale Sends `ignoreAssignment: true` setzen, falls die Automation trotzdem senden soll.
 - `recording.startedAt` als fehlend/Fehler interpretieren — `null` heißt nur, dass die Aufnahme den gesamten Call abdeckt; gesetzt ist es nur, wenn die Aufnahme erst bei einem Transfer mitten im Call begann.
 - Ein `replaced`/`dropped` Ergebnis von `POST .../guardrails/test` als Beweis für das Live-Verhalten eines Calls nehmen — der Test simuliert immer `enforce`; steht der jeweilige Check beim Assistant auf `monitor`, würde der Satz im echten Call trotzdem gesprochen.
+- Annehmen, Guardrails-Zähler in `GET .../guardrails/summary` seien reine Call-Zahlen — die Chat-Session-Zahlen stecken separat im verschachtelten `chat`-Objekt und müssen dort gelesen werden.
+- `handoffFirstMessage` oder `handoffModelGeneratedInstruction` auf `""` setzen und erwarten, dass der Assistant beim Handoff schweigt — ein Leerstring löscht nur den Override (Fallback auf `firstMessage`/Standardinstruktion); für Schweigen `handoffFirstMessageMode: assistant-waits-for-user` setzen.

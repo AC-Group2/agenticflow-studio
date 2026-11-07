@@ -694,12 +694,14 @@ paths:
       tags:
       - Assistant
       summary: Get Guardrails Summary
-      description: 'Guardrails results of this assistant''s calls over the last `days` days.
+      description: 'Guardrails results of this assistant''s calls and chats over the last `days` days.
 
 
         Counts only: how many calls had guardrails on, how many had findings, and
 
-        how many sentences were replaced or left out.'
+        how many sentences were replaced or left out — the same for chat sessions
+
+        in `chat`.'
       operationId: getAssistantGuardrailsSummary
       parameters:
       - name: assistantId
@@ -4489,6 +4491,20 @@ paths:
           minimum: 1
           default: 20
           title: Limit
+      - name: guardrail
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - hits
+            - replaced
+            - active
+            type: string
+          - type: 'null'
+          description: Guardrails filter. `hits` = sessions with at least one finding; `replaced` = sessions where a sentence was replaced or left out; `active` = sessions where guardrails were on.
+          title: Guardrail
+        description: Guardrails filter. `hits` = sessions with at least one finding; `replaced` = sessions where a sentence was replaced or left out; `active` = sessions where guardrails were on.
       responses:
         '200':
           description: Successful Response
@@ -18625,6 +18641,25 @@ components:
           - type: string
           - type: 'null'
           description: Instruction handed to the model when firstMessageMode is assistant-speaks-first-with-model-generated-message. Unset uses the built-in 'Generate a brief greeting to start the conversation.', which is what makes a handoff target open with a generic greeting even when the system prompt asks for a specific question or for silence. Set it to state what the assistant should actually do on its first turn - it does not replace the system prompt, it is delivered alongside it.
+        handoffFirstMessageMode:
+          anyOf:
+          - type: string
+            enum:
+            - assistant-speaks-first
+            - assistant-speaks-first-with-model-generated-message
+            - assistant-waits-for-user
+          - type: 'null'
+          description: 'What the assistant does when it takes over a call from another assistant (an in-session handoff). Unset: the same as at the start of a call (firstMessageMode). assistant-speaks-first: speaks handoffFirstMessage, or firstMessage when that is empty. assistant-speaks-first-with-model-generated-message: says one line generated from handoffModelGeneratedInstruction, so it can continue the conversation instead of greeting again. assistant-waits-for-user: says nothing until the caller speaks. Never used at the start of a call. An empty string clears it.'
+        handoffFirstMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Spoken word for word after a handoff when handoffFirstMessageMode is assistant-speaks-first. Empty uses firstMessage.
+        handoffModelGeneratedInstruction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Instruction for the line the assistant says after a handoff when handoffFirstMessageMode is assistant-speaks-first-with-model-generated-message. Empty uses a built-in instruction: continue the conversation where it left off, in the caller''s language, without greeting the caller or introducing yourself again. Delivered alongside the system prompt, not instead of it.'
         llmRecoveryMessage:
           anyOf:
           - type: string
@@ -22780,6 +22815,13 @@ components:
           - type: string
             format: date-time
           - type: 'null'
+        guardrails:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/TimelineGuardrailEvent'
+            type: array
+          - type: 'null'
+          description: 'Guardrails results of this reply (assistant messages of an assistant with Guardrails on): an `active` event with the mode of every check, then one event per finding — `text` is the sentence as the assistant wrote it, `message` what the user received instead. Sentences that pass are not listed. `seq` numbers the sentences within this reply. Absent when the reply was not checked.'
       type: object
       required:
       - id
@@ -23220,6 +23262,11 @@ components:
           anyOf:
           - $ref: '#/components/schemas/ChatAnalysisSchema'
           - type: 'null'
+        guardrailSummary:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailSummarySchema'
+          - type: 'null'
+          description: Guardrails roll-up of the session (counts only), added up over its checked replies. Absent when Guardrails were never active.
         anonymizedAt:
           anyOf:
           - type: string
@@ -27039,7 +27086,7 @@ components:
           - 'off'
           - monitor
           - enforce
-          description: 'The assistant names, recommends or judges another company. Enforce: the caller hears the competitor line instead and the rest of that reply is left out.'
+          description: 'The assistant names, recommends or judges another company. Enforce: the competitor line is said (or sent in chat) instead and the rest of that reply is left out.'
           default: monitor
         figures:
           type: string
@@ -27047,7 +27094,7 @@ components:
           - 'off'
           - monitor
           - enforce
-          description: 'A price, date, time, phone number or other figure that is not in the assistant''s sources (prompt, knowledge base, tool results, what the caller said). Enforce: the caller hears the fact line instead.'
+          description: 'A price, date, time, phone number or other figure that is not in the assistant''s sources (prompt, knowledge base, tool results, what the caller or chat user said). Enforce: the fact line is said (or sent in chat) instead.'
           default: monitor
         facts:
           type: string
@@ -27055,22 +27102,22 @@ components:
           - 'off'
           - monitor
           - enforce
-          description: 'A factual claim that the assistant''s sources do not support. Enforce: the caller hears the fact line instead.'
+          description: 'A factual claim that the assistant''s sources do not support. Enforce: the fact line is said (or sent in chat) instead.'
           default: monitor
         attribution:
           type: string
           enum:
           - 'off'
           - monitor
-          description: The assistant says the caller said or wanted something they did not say. Recorded only (`off` or `monitor`) — never changes what the caller hears.
+          description: The assistant says the caller or chat user said or wanted something they did not say. Recorded only (`off` or `monitor`) — never changes the reply.
           default: monitor
       type: object
       title: GuardrailChecksSchema
-      description: 'What happens for each check: `off`, `monitor` (record only — the caller
+      description: 'What happens for each check: `off`, `monitor` (record only — callers and
 
-        hears exactly what they would hear without guardrails) or `enforce` (the
+        chat users get exactly what they would get without guardrails) or `enforce`
 
-        sentence is replaced or left out).'
+        (the sentence is replaced or left out).'
     GuardrailFixedRateSchema:
       properties:
         from:
@@ -27098,17 +27145,17 @@ components:
           additionalProperties:
             type: string
           type: object
-          description: Spoken instead of a sentence that mentions another company.
+          description: Said (or sent in chat) instead of a sentence that mentions another company.
         fact:
           additionalProperties:
             type: string
           type: object
-          description: Spoken instead of a sentence with a figure or claim that is not in the sources.
+          description: Said (or sent in chat) instead of a sentence with a figure or claim that is not in the sources.
       type: object
       title: GuardrailLinesSchema
-      description: 'What the caller hears instead of a checked sentence, keyed by language code
+      description: 'What is said (or sent in chat) instead of a checked sentence, keyed by language
 
-        (`de`, `en`, `ar` …). Languages without a line use a built-in default.'
+        code (`de`, `en`, `ar` …). Languages without a line use a built-in default.'
     GuardrailSummarySchema:
       properties:
         active:
@@ -27209,7 +27256,7 @@ components:
           anyOf:
           - $ref: '#/components/schemas/GuardrailLinesSchema'
           - type: 'null'
-          description: What the caller hears instead of a replaced sentence, per language.
+          description: What is said (or sent in chat) instead of a replaced sentence, per language.
         fixedRates:
           items:
             $ref: '#/components/schemas/GuardrailFixedRateSchema'
@@ -27224,7 +27271,9 @@ components:
           description: Literal texts that are never checked as figures (e.g. `Branch 12`). Up to 40 characters each.
       type: object
       title: GuardrailsConfigSchema
-      description: 'Guardrails: every sentence the assistant is about to say is checked first.
+      description: 'Guardrails: every sentence the assistant is about to say — on a call or in a
+
+        chat — is checked first.
 
 
         Available on Standard, Gold and Custom pipeline assistants. Off by default.
@@ -27261,6 +27310,11 @@ components:
         failedOpen:
           type: integer
           description: Sentences spoken unchecked because a check could not finish in time.
+        chat:
+          anyOf:
+          - $ref: '#/components/schemas/GuardrailsChatSummary'
+          - type: 'null'
+          description: The same counts for the assistant's chat sessions in the window.
       type: object
       required:
       - days
@@ -27273,6 +27327,45 @@ components:
       - failedOpen
       title: GuardrailsSummaryResponse
       description: Guardrails results of one assistant over the last `days` days (counts only).
+    GuardrailsChatSummary:
+      properties:
+        sessions:
+          type: integer
+          description: Chat sessions the assistant handled in the window.
+        guardedSessions:
+          type: integer
+          description: Chat sessions where guardrails were on.
+        sessionsWithHits:
+          type: integer
+          description: Chat sessions with at least one finding.
+        hits:
+          type: integer
+          description: Findings in total.
+        byCheck:
+          additionalProperties:
+            type: integer
+          type: object
+          description: Findings per check (`competitors`, `figures`, `facts`, `attribution`).
+        replaced:
+          type: integer
+          description: Sentences the user received a replacement line for.
+        dropped:
+          type: integer
+          description: Sentences that were left out.
+        failedOpen:
+          type: integer
+          description: Sentences sent unchecked because a check could not finish in time.
+      type: object
+      required:
+      - sessions
+      - guardedSessions
+      - sessionsWithHits
+      - hits
+      - replaced
+      - dropped
+      - failedOpen
+      title: GuardrailsChatSummary
+      description: Guardrails results of one assistant's chat sessions (counts only).
     GuardrailsTestFinding:
       properties:
         check:
@@ -32084,6 +32177,25 @@ components:
           - type: string
           - type: 'null'
           description: Instruction handed to the model when firstMessageMode is assistant-speaks-first-with-model-generated-message. Unset uses the built-in 'Generate a brief greeting to start the conversation.', which is what makes a handoff target open with a generic greeting even when the system prompt asks for a specific question or for silence. Set it to state what the assistant should actually do on its first turn - it does not replace the system prompt, it is delivered alongside it.
+        handoffFirstMessageMode:
+          anyOf:
+          - type: string
+            enum:
+            - assistant-speaks-first
+            - assistant-speaks-first-with-model-generated-message
+            - assistant-waits-for-user
+          - type: 'null'
+          description: 'What the assistant does when it takes over a call from another assistant (an in-session handoff). Unset: the same as at the start of a call (firstMessageMode). assistant-speaks-first: speaks handoffFirstMessage, or firstMessage when that is empty. assistant-speaks-first-with-model-generated-message: says one line generated from handoffModelGeneratedInstruction, so it can continue the conversation instead of greeting again. assistant-waits-for-user: says nothing until the caller speaks. Never used at the start of a call. An empty string clears it.'
+        handoffFirstMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Spoken word for word after a handoff when handoffFirstMessageMode is assistant-speaks-first. Empty uses firstMessage.
+        handoffModelGeneratedInstruction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Instruction for the line the assistant says after a handoff when handoffFirstMessageMode is assistant-speaks-first-with-model-generated-message. Empty uses a built-in instruction: continue the conversation where it left off, in the caller''s language, without greeting the caller or introducing yourself again. Delivered alongside the system prompt, not instead of it.'
         llmRecoveryMessage:
           anyOf:
           - type: string
@@ -32635,6 +32747,25 @@ components:
           - type: string
           - type: 'null'
           description: Instruction handed to the model when firstMessageMode is assistant-speaks-first-with-model-generated-message. Unset uses the built-in 'Generate a brief greeting to start the conversation.', which is what makes a handoff target open with a generic greeting even when the system prompt asks for a specific question or for silence. Set it to state what the assistant should actually do on its first turn - it does not replace the system prompt, it is delivered alongside it.
+        handoffFirstMessageMode:
+          anyOf:
+          - type: string
+            enum:
+            - assistant-speaks-first
+            - assistant-speaks-first-with-model-generated-message
+            - assistant-waits-for-user
+          - type: 'null'
+          description: 'What the assistant does when it takes over a call from another assistant (an in-session handoff). Unset: the same as at the start of a call (firstMessageMode). assistant-speaks-first: speaks handoffFirstMessage, or firstMessage when that is empty. assistant-speaks-first-with-model-generated-message: says one line generated from handoffModelGeneratedInstruction, so it can continue the conversation instead of greeting again. assistant-waits-for-user: says nothing until the caller speaks. Never used at the start of a call. An empty string clears it.'
+        handoffFirstMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Spoken word for word after a handoff when handoffFirstMessageMode is assistant-speaks-first. Empty uses firstMessage.
+        handoffModelGeneratedInstruction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Instruction for the line the assistant says after a handoff when handoffFirstMessageMode is assistant-speaks-first-with-model-generated-message. Empty uses a built-in instruction: continue the conversation where it left off, in the caller''s language, without greeting the caller or introducing yourself again. Delivered alongside the system prompt, not instead of it.'
         llmRecoveryMessage:
           anyOf:
           - type: string
@@ -33186,6 +33317,25 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        handoffFirstMessageMode:
+          anyOf:
+          - type: string
+            enum:
+            - assistant-speaks-first
+            - assistant-speaks-first-with-model-generated-message
+            - assistant-waits-for-user
+          - type: 'null'
+          description: 'What the assistant does when it takes over a call from another assistant (an in-session handoff). Unset: the same as at the start of a call (firstMessageMode). assistant-speaks-first: speaks handoffFirstMessage, or firstMessage when that is empty. assistant-speaks-first-with-model-generated-message: says one line generated from handoffModelGeneratedInstruction, so it can continue the conversation instead of greeting again. assistant-waits-for-user: says nothing until the caller speaks. Never used at the start of a call. An empty string clears it.'
+        handoffFirstMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Spoken word for word after a handoff when handoffFirstMessageMode is assistant-speaks-first. Empty uses firstMessage.
+        handoffModelGeneratedInstruction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Instruction for the line the assistant says after a handoff when handoffFirstMessageMode is assistant-speaks-first-with-model-generated-message. Empty uses a built-in instruction: continue the conversation where it left off, in the caller''s language, without greeting the caller or introducing yourself again. Delivered alongside the system prompt, not instead of it.'
         llmRecoveryMessage:
           anyOf:
           - type: string
@@ -34380,6 +34530,25 @@ components:
           - type: string
           - type: 'null'
           description: Instruction handed to the model when firstMessageMode is assistant-speaks-first-with-model-generated-message. Unset uses the built-in 'Generate a brief greeting to start the conversation.', which is what makes a handoff target open with a generic greeting even when the system prompt asks for a specific question or for silence. Set it to state what the assistant should actually do on its first turn - it does not replace the system prompt, it is delivered alongside it.
+        handoffFirstMessageMode:
+          anyOf:
+          - type: string
+            enum:
+            - assistant-speaks-first
+            - assistant-speaks-first-with-model-generated-message
+            - assistant-waits-for-user
+          - type: 'null'
+          description: 'What the assistant does when it takes over a call from another assistant (an in-session handoff). Unset: the same as at the start of a call (firstMessageMode). assistant-speaks-first: speaks handoffFirstMessage, or firstMessage when that is empty. assistant-speaks-first-with-model-generated-message: says one line generated from handoffModelGeneratedInstruction, so it can continue the conversation instead of greeting again. assistant-waits-for-user: says nothing until the caller speaks. Never used at the start of a call. An empty string clears it.'
+        handoffFirstMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Spoken word for word after a handoff when handoffFirstMessageMode is assistant-speaks-first. Empty uses firstMessage.
+        handoffModelGeneratedInstruction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Instruction for the line the assistant says after a handoff when handoffFirstMessageMode is assistant-speaks-first-with-model-generated-message. Empty uses a built-in instruction: continue the conversation where it left off, in the caller''s language, without greeting the caller or introducing yourself again. Delivered alongside the system prompt, not instead of it.'
         llmRecoveryMessage:
           anyOf:
           - type: string
@@ -34645,6 +34814,25 @@ components:
           - type: string
           - type: 'null'
           description: Instruction handed to the model when firstMessageMode is assistant-speaks-first-with-model-generated-message. Unset uses the built-in 'Generate a brief greeting to start the conversation.', which is what makes a handoff target open with a generic greeting even when the system prompt asks for a specific question or for silence. Set it to state what the assistant should actually do on its first turn - it does not replace the system prompt, it is delivered alongside it.
+        handoffFirstMessageMode:
+          anyOf:
+          - type: string
+            enum:
+            - assistant-speaks-first
+            - assistant-speaks-first-with-model-generated-message
+            - assistant-waits-for-user
+          - type: 'null'
+          description: 'What the assistant does when it takes over a call from another assistant (an in-session handoff). Unset: the same as at the start of a call (firstMessageMode). assistant-speaks-first: speaks handoffFirstMessage, or firstMessage when that is empty. assistant-speaks-first-with-model-generated-message: says one line generated from handoffModelGeneratedInstruction, so it can continue the conversation instead of greeting again. assistant-waits-for-user: says nothing until the caller speaks. Never used at the start of a call. An empty string clears it.'
+        handoffFirstMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Spoken word for word after a handoff when handoffFirstMessageMode is assistant-speaks-first. Empty uses firstMessage.
+        handoffModelGeneratedInstruction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Instruction for the line the assistant says after a handoff when handoffFirstMessageMode is assistant-speaks-first-with-model-generated-message. Empty uses a built-in instruction: continue the conversation where it left off, in the caller''s language, without greeting the caller or introducing yourself again. Delivered alongside the system prompt, not instead of it.'
         llmRecoveryMessage:
           anyOf:
           - type: string
@@ -34910,6 +35098,25 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        handoffFirstMessageMode:
+          anyOf:
+          - type: string
+            enum:
+            - assistant-speaks-first
+            - assistant-speaks-first-with-model-generated-message
+            - assistant-waits-for-user
+          - type: 'null'
+          description: 'What the assistant does when it takes over a call from another assistant (an in-session handoff). Unset: the same as at the start of a call (firstMessageMode). assistant-speaks-first: speaks handoffFirstMessage, or firstMessage when that is empty. assistant-speaks-first-with-model-generated-message: says one line generated from handoffModelGeneratedInstruction, so it can continue the conversation instead of greeting again. assistant-waits-for-user: says nothing until the caller speaks. Never used at the start of a call. An empty string clears it.'
+        handoffFirstMessage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Spoken word for word after a handoff when handoffFirstMessageMode is assistant-speaks-first. Empty uses firstMessage.
+        handoffModelGeneratedInstruction:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Instruction for the line the assistant says after a handoff when handoffFirstMessageMode is assistant-speaks-first-with-model-generated-message. Empty uses a built-in instruction: continue the conversation where it left off, in the caller''s language, without greeting the caller or introducing yourself again. Delivered alongside the system prompt, not instead of it.'
         llmRecoveryMessage:
           anyOf:
           - type: string
