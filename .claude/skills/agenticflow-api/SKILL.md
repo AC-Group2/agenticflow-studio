@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **219 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-11-07).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **219 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-11-11).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -105,6 +105,14 @@ Controls what an assistant says the instant it **takes over a call from another 
 - Left unset, a handoff falls back to the **start-of-call** behavior (`firstMessageMode`) — which defaults to a generic "Generate a brief greeting to start the conversation" model instruction. That's why a handoff target used to open with a throwaway greeting even when its system prompt asked for a specific question or silence; set `handoffFirstMessageMode` explicitly to fix that instead of fighting it via the system prompt.
 - An empty string on `handoffFirstMessage` / `handoffModelGeneratedInstruction` clears the override and falls back to `firstMessage` / the built-in instruction, respectively — it does not mean "say nothing" (use `assistant-waits-for-user` for that).
 - These fields are delivered **alongside** the system prompt on handoff, not instead of it.
+
+## Folder nesting — `parentId` / `subfolderCount` and the delete cascade
+
+Folders (`/folders`, `/folders/{folderId}`) now nest **one level deep**: a top-level folder (`parentId: null`) can contain subfolders, but a subfolder cannot itself contain folders. `POST /folders` and `PATCH /folders/{folderId}` take `parentId` to create/move a folder inside a top-level folder of the *same* `resourceType`; a folder that already contains subfolders can't be moved inside another folder.
+
+- **`itemCount`** on a folder counts only items assigned directly to that folder — an item inside a subfolder is counted on the subfolder, not rolled up to the parent. **`subfolderCount`** (new field) is the number of subfolders inside it, always `0` for a subfolder itself.
+- **`DELETE /folders/{folderId}` cascade behavior changed**: with `cascade=false` (default), the folder's *own* items no longer end up detached (`folderId` cleared) — they move up one level (into the parent folder for a subfolder, or to the root list for a top-level folder), and its subfolders become top-level folders, keeping their own items untouched. With `cascade=true`, everything is deleted: the folder, its own items, its subfolders, and their items.
+- The delete response gained **`subfolderCount`** (subfolders affected) alongside `orphanedCount` (now "items moved up a level", not "detached") and `deletedCount`.
 
 ## Edit template — `PATCH /messaging/channels/{channel_id}/templates/{template_id}`
 
@@ -220,3 +228,4 @@ When a team member takes a conversation over in the dashboard, `ConversationResp
 - Ein `replaced`/`dropped` Ergebnis von `POST .../guardrails/test` als Beweis für das Live-Verhalten eines Calls nehmen — der Test simuliert immer `enforce`; steht der jeweilige Check beim Assistant auf `monitor`, würde der Satz im echten Call trotzdem gesprochen.
 - Annehmen, Guardrails-Zähler in `GET .../guardrails/summary` seien reine Call-Zahlen — die Chat-Session-Zahlen stecken separat im verschachtelten `chat`-Objekt und müssen dort gelesen werden.
 - `handoffFirstMessage` oder `handoffModelGeneratedInstruction` auf `""` setzen und erwarten, dass der Assistant beim Handoff schweigt — ein Leerstring löscht nur den Override (Fallback auf `firstMessage`/Standardinstruktion); für Schweigen `handoffFirstMessageMode: assistant-waits-for-user` setzen.
+- Nach `DELETE /folders/{folderId}` mit `cascade=false` erwarten, dass die eigenen Items des Folders ungebunden (`folderId: null`) sind — sie landen stattdessen eine Ebene höher (im Parent-Folder bzw. in der Root-Liste); Subfolder werden dabei zu Top-Level-Foldern und behalten ihre Items.

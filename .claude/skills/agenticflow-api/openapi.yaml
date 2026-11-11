@@ -1595,6 +1595,11 @@ paths:
       description: 'List every folder of `resourceType` for the caller''s workspace.
 
 
+        Top-level folders and subfolders are returned together; `parentId`
+
+        tells them apart (`null` = top level).
+
+
         Folder counts are computed live via aggregation so a caller can
 
         rely on `itemCount` for a badge without a second call. Results
@@ -1739,7 +1744,10 @@ paths:
       tags:
       - Folders
       summary: Update Folder
-      description: 'Update a folder''s `name` in place.
+      description: 'Rename a folder and/or move it (`parentId`).
+
+
+        Moving changes only where the folder sits; items keep their folder.
 
 
         `resourceType` is deliberately immutable — changing it would
@@ -1829,10 +1837,10 @@ paths:
         required: false
         schema:
           type: boolean
-          description: If `true`, every child resource in the folder is also deleted. If `false` (default), children are detached (their `folderId` is cleared) and otherwise left alone.
+          description: If `true`, every child resource in the folder is also deleted — subfolders and their items included. If `false` (default), the folder's own items move up one level (into the parent folder for a subfolder, to the root list otherwise) and its subfolders become top-level folders, keeping their items.
           default: false
           title: Cascade
-        description: If `true`, every child resource in the folder is also deleted. If `false` (default), children are detached (their `folderId` is cleared) and otherwise left alone.
+        description: If `true`, every child resource in the folder is also deleted — subfolders and their items included. If `false` (default), the folder's own items move up one level (into the parent folder for a subfolder, to the root list otherwise) and its subfolders become top-level folders, keeping their items.
       responses:
         '200':
           description: Successful Response
@@ -18739,6 +18747,7 @@ components:
             - $ref: '#/components/schemas/GoogleTTS'
             - $ref: '#/components/schemas/GradiumTTS'
             - $ref: '#/components/schemas/GroqTTS'
+            - $ref: '#/components/schemas/Hamsa'
             - $ref: '#/components/schemas/Hume'
             - $ref: '#/components/schemas/Inworld'
             - $ref: '#/components/schemas/KugelAudio'
@@ -18773,6 +18782,7 @@ components:
                 google-tts: '#/components/schemas/GoogleTTS'
                 gradium-tts: '#/components/schemas/GradiumTTS'
                 groq-tts: '#/components/schemas/GroqTTS'
+                hamsa: '#/components/schemas/Hamsa'
                 hume: '#/components/schemas/Hume'
                 inworld: '#/components/schemas/Inworld'
                 kugelaudio: '#/components/schemas/KugelAudio'
@@ -18895,6 +18905,7 @@ components:
             - $ref: '#/components/schemas/GoogleTTS'
             - $ref: '#/components/schemas/GradiumTTS'
             - $ref: '#/components/schemas/GroqTTS'
+            - $ref: '#/components/schemas/Hamsa'
             - $ref: '#/components/schemas/Hume'
             - $ref: '#/components/schemas/Inworld'
             - $ref: '#/components/schemas/KugelAudio'
@@ -18929,6 +18940,7 @@ components:
                 google-tts: '#/components/schemas/GoogleTTS'
                 gradium-tts: '#/components/schemas/GradiumTTS'
                 groq-tts: '#/components/schemas/GroqTTS'
+                hamsa: '#/components/schemas/Hamsa'
                 hume: '#/components/schemas/Hume'
                 inworld: '#/components/schemas/Inworld'
                 kugelaudio: '#/components/schemas/KugelAudio'
@@ -25823,6 +25835,11 @@ components:
         name:
           type: string
           description: Human-readable folder label (1-100 characters, trimmed).
+        parentId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Create the folder inside this folder. Must be a top-level folder of the same `resourceType` — folders nest one level deep. Omit or `null` for a top-level folder.
       type: object
       required:
       - resourceType
@@ -25836,11 +25853,15 @@ components:
           description: The soft-deleted folder.
         orphanedCount:
           type: integer
-          description: Child items detached from the folder (`cascade=false`).
+          description: Items of this folder itself moved up one level — into the parent folder for a subfolder, to the root list otherwise (`cascade=false`). Items in its subfolders stay in them.
           default: 0
         deletedCount:
           type: integer
-          description: Child items soft-deleted along with the folder (`cascade=true`).
+          description: Items soft-deleted along with the folder, its subfolders' items included (`cascade=true`).
+          default: 0
+        subfolderCount:
+          type: integer
+          description: 'Subfolders of this folder: made top-level folders with their items (`cascade=false`) or deleted with them (`cascade=true`).'
           default: 0
       type: object
       required:
@@ -25905,9 +25926,18 @@ components:
           description: Resource family this folder groups.
         name:
           type: string
+        parentId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The folder this folder sits in, or `null` for a top-level folder. Folders nest one level deep.
         itemCount:
           type: integer
-          description: Number of non-deleted items of `resourceType` currently assigned to this folder. Computed at request time — always reflects the live collection state.
+          description: Number of non-deleted items of `resourceType` currently assigned to this folder itself (items in its subfolders are counted on the subfolders). Computed at request time — always reflects the live collection state.
+          default: 0
+        subfolderCount:
+          type: integer
+          description: Number of folders inside this folder (always 0 for a subfolder).
           default: 0
         createdAt:
           anyOf:
@@ -25941,6 +25971,11 @@ components:
           - type: string
           - type: 'null'
           description: New label (1-100 characters, trimmed).
+        parentId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Move the folder. A top-level folder id puts it inside that folder; `null` makes it a top-level folder; omit to leave it where it is. A folder that contains folders cannot be put inside another folder. Items keep their folder.
       type: object
       title: FolderUpdate
       description: Update-folder request body — every field optional (PATCH semantics).
@@ -27466,6 +27501,60 @@ components:
           type: array
       type: object
       title: HTTPValidationError
+    Hamsa:
+      properties:
+        provider:
+          type: string
+          const: hamsa
+        voiceId:
+          type: string
+          maxLength: 100
+          minLength: 1
+          description: Voice name as listed in your Hamsa account (e.g. `Hiba`, `Lana`). Names repeat across dialects, so set `dialect` too.
+        dialect:
+          anyOf:
+          - type: string
+            enum:
+            - ksa
+            - uae
+            - kuw
+            - qat
+            - bah
+            - oma
+            - ar-sa
+            - egy
+            - jor
+            - pls
+            - leb
+            - syr
+            - irq
+            - msa
+            - en
+          - type: 'null'
+          description: 'Dialect the voice speaks: `ksa` Saudi, `uae` Emirati, `kuw` Kuwaiti, `qat` Qatari, `bah` Bahraini, `oma` Omani, `ar-sa` Gulf, `egy` Egyptian, `jor` Jordanian, `pls` Palestinian, `leb` Lebanese, `syr` Syrian, `irq` Iraqi, `msa` Modern Standard Arabic, `en` English. Normally the voice''s own dialect.'
+        expressiveness:
+          anyOf:
+          - type: number
+            maximum: 2
+            minimum: 0
+          - type: 'null'
+          description: How expressive the delivery is, 0–2. Unset uses Hamsa's default (1).
+        model:
+          anyOf:
+          - type: string
+            const: hamsa-tts
+          - type: 'null'
+        language:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - provider
+      - voiceId
+      title: Hamsa
+      description: Hamsa TTS — a voice from your Hamsa account, spoken in a dialect.
     HeaderComponent:
       properties:
         type:
@@ -32441,6 +32530,7 @@ components:
             - $ref: '#/components/schemas/GoogleTTS'
             - $ref: '#/components/schemas/GradiumTTS'
             - $ref: '#/components/schemas/GroqTTS'
+            - $ref: '#/components/schemas/Hamsa'
             - $ref: '#/components/schemas/Hume'
             - $ref: '#/components/schemas/Inworld'
             - $ref: '#/components/schemas/KugelAudio'
@@ -32475,6 +32565,7 @@ components:
                 google-tts: '#/components/schemas/GoogleTTS'
                 gradium-tts: '#/components/schemas/GradiumTTS'
                 groq-tts: '#/components/schemas/GroqTTS'
+                hamsa: '#/components/schemas/Hamsa'
                 hume: '#/components/schemas/Hume'
                 inworld: '#/components/schemas/Inworld'
                 kugelaudio: '#/components/schemas/KugelAudio'
@@ -32597,6 +32688,7 @@ components:
             - $ref: '#/components/schemas/GoogleTTS'
             - $ref: '#/components/schemas/GradiumTTS'
             - $ref: '#/components/schemas/GroqTTS'
+            - $ref: '#/components/schemas/Hamsa'
             - $ref: '#/components/schemas/Hume'
             - $ref: '#/components/schemas/Inworld'
             - $ref: '#/components/schemas/KugelAudio'
@@ -32631,6 +32723,7 @@ components:
                 google-tts: '#/components/schemas/GoogleTTS'
                 gradium-tts: '#/components/schemas/GradiumTTS'
                 groq-tts: '#/components/schemas/GroqTTS'
+                hamsa: '#/components/schemas/Hamsa'
                 hume: '#/components/schemas/Hume'
                 inworld: '#/components/schemas/Inworld'
                 kugelaudio: '#/components/schemas/KugelAudio'
@@ -33011,6 +33104,7 @@ components:
             - $ref: '#/components/schemas/GoogleTTS'
             - $ref: '#/components/schemas/GradiumTTS'
             - $ref: '#/components/schemas/GroqTTS'
+            - $ref: '#/components/schemas/Hamsa'
             - $ref: '#/components/schemas/Hume'
             - $ref: '#/components/schemas/Inworld'
             - $ref: '#/components/schemas/KugelAudio'
@@ -33045,6 +33139,7 @@ components:
                 google-tts: '#/components/schemas/GoogleTTS'
                 gradium-tts: '#/components/schemas/GradiumTTS'
                 groq-tts: '#/components/schemas/GroqTTS'
+                hamsa: '#/components/schemas/Hamsa'
                 hume: '#/components/schemas/Hume'
                 inworld: '#/components/schemas/Inworld'
                 kugelaudio: '#/components/schemas/KugelAudio'
@@ -33167,6 +33262,7 @@ components:
             - $ref: '#/components/schemas/GoogleTTS'
             - $ref: '#/components/schemas/GradiumTTS'
             - $ref: '#/components/schemas/GroqTTS'
+            - $ref: '#/components/schemas/Hamsa'
             - $ref: '#/components/schemas/Hume'
             - $ref: '#/components/schemas/Inworld'
             - $ref: '#/components/schemas/KugelAudio'
@@ -33201,6 +33297,7 @@ components:
                 google-tts: '#/components/schemas/GoogleTTS'
                 gradium-tts: '#/components/schemas/GradiumTTS'
                 groq-tts: '#/components/schemas/GroqTTS'
+                hamsa: '#/components/schemas/Hamsa'
                 hume: '#/components/schemas/Hume'
                 inworld: '#/components/schemas/Inworld'
                 kugelaudio: '#/components/schemas/KugelAudio'
@@ -33581,6 +33678,7 @@ components:
             - $ref: '#/components/schemas/GoogleTTS'
             - $ref: '#/components/schemas/GradiumTTS'
             - $ref: '#/components/schemas/GroqTTS'
+            - $ref: '#/components/schemas/Hamsa'
             - $ref: '#/components/schemas/Hume'
             - $ref: '#/components/schemas/Inworld'
             - $ref: '#/components/schemas/KugelAudio'
@@ -33615,6 +33713,7 @@ components:
                 google-tts: '#/components/schemas/GoogleTTS'
                 gradium-tts: '#/components/schemas/GradiumTTS'
                 groq-tts: '#/components/schemas/GroqTTS'
+                hamsa: '#/components/schemas/Hamsa'
                 hume: '#/components/schemas/Hume'
                 inworld: '#/components/schemas/Inworld'
                 kugelaudio: '#/components/schemas/KugelAudio'
@@ -33737,6 +33836,7 @@ components:
             - $ref: '#/components/schemas/GoogleTTS'
             - $ref: '#/components/schemas/GradiumTTS'
             - $ref: '#/components/schemas/GroqTTS'
+            - $ref: '#/components/schemas/Hamsa'
             - $ref: '#/components/schemas/Hume'
             - $ref: '#/components/schemas/Inworld'
             - $ref: '#/components/schemas/KugelAudio'
@@ -33771,6 +33871,7 @@ components:
                 google-tts: '#/components/schemas/GoogleTTS'
                 gradium-tts: '#/components/schemas/GradiumTTS'
                 groq-tts: '#/components/schemas/GroqTTS'
+                hamsa: '#/components/schemas/Hamsa'
                 hume: '#/components/schemas/Hume'
                 inworld: '#/components/schemas/Inworld'
                 kugelaudio: '#/components/schemas/KugelAudio'
@@ -37397,6 +37498,7 @@ components:
           anyOf:
           - type: string
             enum:
+            - stt-rt-v6
             - stt-rt-v5
             - stt-rt-v4
           - type: 'null'
@@ -37447,14 +37549,14 @@ components:
             maximum: 1
             minimum: -1
           - type: 'null'
-          description: How readily the model declares a turn finished. Higher finalizes sooner, lower waits longer. `stt-rt-v5` only. Combining a negative value with a non-zero latency-adjustment level works against itself and is not recommended by Soniox.
+          description: How readily the model declares a turn finished. Higher finalizes sooner, lower waits longer. `stt-rt-v6` and `stt-rt-v5` only. Combining a negative value with a non-zero latency-adjustment level works against itself and is not recommended by Soniox.
         endpointLatencyAdjustmentLevel:
           anyOf:
           - type: integer
             maximum: 3
             minimum: 0
           - type: 'null'
-          description: 'How aggressively endpoint latency is reduced: 0 default, 1 lower, 2 even lower, 3 most aggressive. `stt-rt-v5` only. Soniox''s own low-latency starting point is level 2 with sensitivity 0.3 and a 1500 ms max delay.'
+          description: 'How aggressively endpoint latency is reduced: 0 default, 1 lower, 2 even lower, 3 most aggressive. `stt-rt-v6` and `stt-rt-v5` only. Soniox''s own low-latency starting point is level 2 with sensitivity 0.3 and a 1500 ms max delay.'
         sampleRate:
           anyOf:
           - type: integer
@@ -37462,6 +37564,11 @@ components:
             minimum: 8000
           - type: 'null'
           description: Audio sample rate declared to Soniox. The SDK resamples the agent's audio to match, so this cannot desync from the real stream. Unset sends the default (16000).
+        agentTextInput:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Send each reply the assistant has spoken to Soniox, so the caller's answer to it (a number, a name, a short yes or no) is recognised with both sides of the conversation in view. `stt-rt-v6` only. Soniox bills this text like context. Default off.
       additionalProperties: false
       type: object
       required:
