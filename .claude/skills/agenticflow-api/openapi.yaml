@@ -2121,7 +2121,7 @@ paths:
       tags:
       - Phone Number
       summary: Create Phone Number
-      description: "Provision a phone number for your workspace.\n\nTwo provider subtypes are accepted, discriminated by `provider`:\n\n- `twilio` — caller supplies their Twilio account SID + auth\n  token. The backend provisions a Twilio Elastic SIP Trunk +\n  credential list and creates the matching inbound / outbound\n  routing.\n- `byo-sip` — caller references an existing `SipTrunk`\n  document; the backend creates only the inbound / outbound\n  routing on top of that trunk.\n\nReturns `status: \"active\"` once provisioning succeeds. Returns\n409 if the number is already imported into this workspace."
+      description: "Provision a phone number for your workspace.\n\nTwo provider subtypes are accepted, discriminated by `provider`:\n\n- `twilio` — caller supplies their Twilio account SID + auth\n  token. The backend provisions a Twilio Elastic SIP Trunk + a SIP\n  login in the account's shared credential list and creates the\n  matching inbound / outbound routing.\n- `byo-sip` — caller references an existing `SipTrunk`\n  document; the backend creates only the inbound / outbound\n  routing on top of that trunk.\n\nReturns `status: \"active\"` once provisioning succeeds. Returns\n409 if the number is already imported into this workspace."
       operationId: createPhoneNumber
       requestBody:
         required: true
@@ -2309,9 +2309,13 @@ paths:
 
         Cleans up in reverse provisioning order: the inbound / outbound
 
-        routing rules first, then the Twilio Elastic SIP Trunk and
+        routing rules first, then (for Twilio-provider numbers) the Twilio
 
-        credential list (for Twilio-provider numbers). The number is
+        Elastic SIP Trunk and the number''s SIP login — or its own credential
+
+        list, for numbers created before credential lists were shared. A
+
+        credential list shared by the account''s numbers is never deleted. The number is
 
         marked deleted; any calls that still reference its id keep
 
@@ -3539,7 +3543,14 @@ paths:
 
         `startedAt` / `durationSeconds`. Soft-deleted calls are
 
-        excluded. All filters compose with AND semantics.'
+        excluded. All filters compose with AND semantics.
+
+
+        `view=summary` returns a smaller row per call (no conversation,
+
+        no configuration copies) for overviews over many calls. Filters,
+
+        search, sorting and paging work the same in both views.'
       operationId: listCalls
       parameters:
       - name: skip
@@ -3837,6 +3848,18 @@ paths:
           default: desc
           title: Sortorder
         description: Sort direction.
+      - name: view
+        in: query
+        required: false
+        schema:
+          enum:
+          - full
+          - summary
+          type: string
+          description: 'How much of each call to return. `full` (default) returns every field. `summary` returns the overview fields only: id, type, status, endedReason, endedReasonDetail, sipStatusCode, conversationOccurred, assistantId, phoneNumberId, tier, customer, callerId, name, metadata, startedAt, endedAt, durationSeconds, createdAt, updatedAt, analysis, recording, error, billedAmountCents, tenantWholesaleCents, surchargeApplied, toolCallSummary, guardrailSummary, anonymizedAt, anonymizationStatus, retentionStatus. Other fields (such as transcript, messages and timeline) are left out of the response; fetch a single call for them.'
+          default: full
+          title: View
+        description: 'How much of each call to return. `full` (default) returns every field. `summary` returns the overview fields only: id, type, status, endedReason, endedReasonDetail, sipStatusCode, conversationOccurred, assistantId, phoneNumberId, tier, customer, callerId, name, metadata, startedAt, endedAt, durationSeconds, createdAt, updatedAt, analysis, recording, error, billedAmountCents, tenantWholesaleCents, surchargeApplied, toolCallSummary, guardrailSummary, anonymizedAt, anonymizationStatus, retentionStatus. Other fields (such as transcript, messages and timeline) are left out of the response; fetch a single call for them.'
       responses:
         '200':
           description: Successful Response
@@ -4445,7 +4468,9 @@ paths:
 
         Sorted newest-first. Use the `nextCursor` from the response to
 
-        page forward; `null` means no more pages.'
+        page forward; `null` means no more pages. `view=summary`
+
+        returns a smaller row per session for overviews over many sessions.'
       operationId: listChatSessions
       parameters:
       - name: assistantId
@@ -4513,6 +4538,18 @@ paths:
           description: Guardrails filter. `hits` = sessions with at least one finding; `replaced` = sessions where a sentence was replaced or left out; `active` = sessions where guardrails were on.
           title: Guardrail
         description: Guardrails filter. `hits` = sessions with at least one finding; `replaced` = sessions where a sentence was replaced or left out; `active` = sessions where guardrails were on.
+      - name: view
+        in: query
+        required: false
+        schema:
+          enum:
+          - full
+          - summary
+          type: string
+          description: How much of each session to return. `full` (default) returns every field. `summary` leaves out `assistant` (the assistant configuration used by the session; `assistantId` stays) and `messages`. Fetch a single session for them.
+          default: full
+          title: View
+        description: How much of each session to return. `full` (default) returns every field. `summary` leaves out `assistant` (the assistant configuration used by the session; `assistantId` stays) and `messages`. Fetch a single session for them.
       responses:
         '200':
           description: Successful Response
@@ -27228,6 +27265,10 @@ components:
           type: integer
           description: Sentences spoken unchecked because a check could not finish in time.
           default: 0
+        held:
+          type: integer
+          description: Sentences held back because a check could not be completed (`holdUnchecked`). Not counted in `hits`, `replaced` or `dropped`.
+          default: 0
       additionalProperties: true
       type: object
       title: GuardrailSummarySchema
@@ -27304,6 +27345,10 @@ components:
           type: array
           maxItems: 50
           description: Literal texts that are never checked as figures (e.g. `Branch 12`). Up to 40 characters each.
+        holdUnchecked:
+          type: boolean
+          description: 'What happens when a check in `enforce` cannot be completed. `false` (default): the sentence is said or sent and recorded as unchecked. `true`: no sentence goes out unchecked — the check gets more time first, and without a result the fact line is said (or sent in chat) instead, as for a finding. Checks in `monitor` are not affected.'
+          default: false
       type: object
       title: GuardrailsConfigSchema
       description: 'Guardrails: every sentence the assistant is about to say — on a call or in a
@@ -27345,6 +27390,10 @@ components:
         failedOpen:
           type: integer
           description: Sentences spoken unchecked because a check could not finish in time.
+        held:
+          type: integer
+          description: Sentences held back because a check could not be completed (`holdUnchecked`). Not counted as findings.
+          default: 0
         chat:
           anyOf:
           - $ref: '#/components/schemas/GuardrailsChatSummary'
@@ -27390,6 +27439,10 @@ components:
         failedOpen:
           type: integer
           description: Sentences sent unchecked because a check could not finish in time.
+        held:
+          type: integer
+          description: Sentences held back because a check could not be completed (`holdUnchecked`). Not counted as findings.
+          default: 0
       type: object
       required:
       - sessions
@@ -27482,7 +27535,7 @@ components:
           type: array
         complete:
           type: boolean
-          description: '`false` when a check could not finish in time — on a call the sentence would have been spoken unchecked.'
+          description: '`false` when a check could not finish in time — on a call the sentence would have been spoken unchecked, or held back when `holdUnchecked` is on.'
           default: true
         truncated:
           type: boolean
@@ -38876,7 +38929,11 @@ components:
 
         time and the sentence was spoken unchecked). Sentences that pass are not
 
-        recorded.'
+        recorded. A `replaced` / `dropped` event with `rule` `unavailable`
+
+        is a sentence held back because its check could not be completed
+
+        (`holdUnchecked`) — not a finding.'
     TimelineHandoffEvent:
       properties:
         timestamp:
@@ -39838,9 +39895,11 @@ components:
       description: 'Phone number imported from a Twilio account.
 
 
-        On create the backend provisions a Twilio Elastic SIP Trunk +
+        On create the backend provisions a Twilio Elastic SIP Trunk pointing
 
-        credential list pointing at our SIP URI, plus the matching inbound
+        at our SIP URI with a SIP login in the account''s shared credential
+
+        list, plus the matching inbound
 
         / outbound routing. All Twilio resource IDs land on the response
 

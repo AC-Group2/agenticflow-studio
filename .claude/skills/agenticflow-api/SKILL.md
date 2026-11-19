@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **219 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-11-11).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **219 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-11-19).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -74,6 +74,14 @@ Changes a *running* assistant's instructions and/or tools while the caller is st
 - **`GET /assistant/guardrails/availability`** is a platform/plan gate — `available: false` means hide the Guardrails UI entirely here, not just "off for this assistant."
 - **`GET /assistant/{assistantId}/guardrails/summary`** (`days`, 1–90, default 7) returns call counts (`hits`, `replaced`, `dropped`, `failedOpen`, per-check breakdown) at the top level **plus a nested `chat` object** (`GuardrailsChatSummary`) with the same shape for the assistant's chat sessions in the window — counts only, no transcripts or sentence text; cross-reference `GET /call/{callId}/logs` or the chat session's timeline for the actual wording of a specific finding.
 - **`GET /chat/sessions`** takes a `guardrail` filter (`hits` | `replaced` | `active`) to narrow the list to sessions with findings, with a replaced/dropped sentence, or that just had guardrails on.
+- **`holdUnchecked`** (per-check field, default `false`): controls what happens when a check in `enforce` can't finish in time. `false` (default) lets the sentence go out unchecked, counted in `failedOpen`. `true` holds it back instead — the check gets a bit more extra time, and if it still can't complete, the fact line is said/sent as if it were a finding; this is counted in **`held`** (new field on `GuardrailSummarySchema`/`GuardrailsChatSummary`), never in `failedOpen`/`hits`/`replaced`/`dropped`. A held sentence's timeline event carries `rule: unavailable`. Checks running in `monitor` are unaffected by `holdUnchecked`.
+
+## Twilio phone number provisioning — shared SIP credential list
+
+`POST /phone-number` with `provider: twilio` provisions a Twilio Elastic SIP Trunk pointing at our SIP URI, plus a SIP login — this login is now added to a credential list **shared across every Twilio number already provisioned for that same Twilio account**, instead of each number getting its own list.
+
+- **`DELETE /phone-number/{id}`** cleans up in reverse provisioning order (routing rules, then the Elastic SIP Trunk, then the number's own SIP login) but **never deletes a credential list shared by other numbers on the account**. Only a number created before credential lists were shared still owns — and loses — its own list on delete.
+- Don't assume deleting the last number for a Twilio account tears down its credential list — other numbers on that account may still reference it.
 
 ## Call log archive — `GET /call/{callId}/logs`
 
@@ -229,3 +237,5 @@ When a team member takes a conversation over in the dashboard, `ConversationResp
 - Annehmen, Guardrails-Zähler in `GET .../guardrails/summary` seien reine Call-Zahlen — die Chat-Session-Zahlen stecken separat im verschachtelten `chat`-Objekt und müssen dort gelesen werden.
 - `handoffFirstMessage` oder `handoffModelGeneratedInstruction` auf `""` setzen und erwarten, dass der Assistant beim Handoff schweigt — ein Leerstring löscht nur den Override (Fallback auf `firstMessage`/Standardinstruktion); für Schweigen `handoffFirstMessageMode: assistant-waits-for-user` setzen.
 - Nach `DELETE /folders/{folderId}` mit `cascade=false` erwarten, dass die eigenen Items des Folders ungebunden (`folderId: null`) sind — sie landen stattdessen eine Ebene höher (im Parent-Folder bzw. in der Root-Liste); Subfolder werden dabei zu Top-Level-Foldern und behalten ihre Items.
+- Beim Löschen der letzten Telefonnummer eines Twilio-Accounts erwarten, dass die geteilte SIP-Credential-Liste mitgelöscht wird — sie wird nur entfernt, wenn sie (Legacy-Fall) nicht von anderen Nummern des Accounts geteilt wird.
+- `holdUnchecked: true` setzen und erwarten, dass ein zu langsamer Check einfach wie bisher `failedOpen` zählt — der Satz wird stattdessen zurückgehalten und per Fact-Line ersetzt, gezählt in `held`, nicht in `failedOpen`/`hits`/`replaced`/`dropped`.
