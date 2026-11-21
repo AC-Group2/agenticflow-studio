@@ -19046,6 +19046,13 @@ components:
                 xai-stt: '#/components/schemas/XaiSTT'
           - type: 'null'
           description: Patch the fallback STT transcriber. Pass an STT config dict to set or replace; `null` clears; omit to leave unchanged. **Custom-mode only** and **pipeline-only**.
+        languageVoices:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/LanguageVoiceSchema'
+            type: array
+          - type: 'null'
+          description: Replace the per-language voices. Pass the full list to set or replace; `null` or `[]` clears; omit to leave unchanged. **Custom-mode only** and **pipeline-only**.
         tools:
           anyOf:
           - items:
@@ -19099,6 +19106,10 @@ components:
           - type: boolean
           - type: 'null'
         preemptiveGeneration:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+        preemptiveTts:
           anyOf:
           - type: boolean
           - type: 'null'
@@ -28693,6 +28704,88 @@ components:
       - voiceId
       title: KugelAudio
       description: KugelAudio TTS variant. Voices are fetched live from the vendor.
+    LanguageVoiceSchema:
+      properties:
+        language:
+          type: string
+          description: Two-letter language code (ISO 639-1), e.g. `ar`. Replies the assistant writes in this language are spoken with `voice`.
+        voice:
+          oneOf:
+          - $ref: '#/components/schemas/AsyncAI'
+          - $ref: '#/components/schemas/AwsPolly'
+          - $ref: '#/components/schemas/AzureTTS'
+          - $ref: '#/components/schemas/AzureOpenAITTS'
+          - $ref: '#/components/schemas/Cartesia'
+          - $ref: '#/components/schemas/ClevrLabs'
+          - $ref: '#/components/schemas/DeepgramTTS'
+          - $ref: '#/components/schemas/ElevenLabs'
+          - $ref: '#/components/schemas/Fruitly'
+          - $ref: '#/components/schemas/GeminiTTS'
+          - $ref: '#/components/schemas/GoogleTTS'
+          - $ref: '#/components/schemas/GradiumTTS'
+          - $ref: '#/components/schemas/GroqTTS'
+          - $ref: '#/components/schemas/Hamsa'
+          - $ref: '#/components/schemas/Hume'
+          - $ref: '#/components/schemas/Inworld'
+          - $ref: '#/components/schemas/KugelAudio'
+          - $ref: '#/components/schemas/Lmnt'
+          - $ref: '#/components/schemas/MinimaxTTS'
+          - $ref: '#/components/schemas/Munsit'
+          - $ref: '#/components/schemas/Murf'
+          - $ref: '#/components/schemas/Neuphonic'
+          - $ref: '#/components/schemas/NvidiaTTS'
+          - $ref: '#/components/schemas/OpenAITTS'
+          - $ref: '#/components/schemas/Rime'
+          - $ref: '#/components/schemas/SarvamTTS'
+          - $ref: '#/components/schemas/Silma'
+          - $ref: '#/components/schemas/SmallestAI'
+          - $ref: '#/components/schemas/SonioxTTS'
+          - $ref: '#/components/schemas/Speechify'
+          - $ref: '#/components/schemas/SpeechmaticsTTS'
+          - $ref: '#/components/schemas/XaiTTS'
+          description: Voice for replies in `language`. Same options as the assistant's `voice`.
+          discriminator:
+            propertyName: provider
+            mapping:
+              asyncai: '#/components/schemas/AsyncAI'
+              aws-polly: '#/components/schemas/AwsPolly'
+              azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
+              azure-tts: '#/components/schemas/AzureTTS'
+              cartesia: '#/components/schemas/Cartesia'
+              clevrlabs: '#/components/schemas/ClevrLabs'
+              deepgram-tts: '#/components/schemas/DeepgramTTS'
+              elevenlabs: '#/components/schemas/ElevenLabs'
+              fruitly: '#/components/schemas/Fruitly'
+              gemini-tts: '#/components/schemas/GeminiTTS'
+              google-tts: '#/components/schemas/GoogleTTS'
+              gradium-tts: '#/components/schemas/GradiumTTS'
+              groq-tts: '#/components/schemas/GroqTTS'
+              hamsa: '#/components/schemas/Hamsa'
+              hume: '#/components/schemas/Hume'
+              inworld: '#/components/schemas/Inworld'
+              kugelaudio: '#/components/schemas/KugelAudio'
+              lmnt: '#/components/schemas/Lmnt'
+              minimax-tts: '#/components/schemas/MinimaxTTS'
+              munsit: '#/components/schemas/Munsit'
+              murf: '#/components/schemas/Murf'
+              neuphonic: '#/components/schemas/Neuphonic'
+              nvidia-tts: '#/components/schemas/NvidiaTTS'
+              openai-tts: '#/components/schemas/OpenAITTS'
+              rime: '#/components/schemas/Rime'
+              sarvam-tts: '#/components/schemas/SarvamTTS'
+              silma: '#/components/schemas/Silma'
+              smallestai: '#/components/schemas/SmallestAI'
+              soniox-tts: '#/components/schemas/SonioxTTS'
+              speechify: '#/components/schemas/Speechify'
+              speechmatics-tts: '#/components/schemas/SpeechmaticsTTS'
+              xai-tts: '#/components/schemas/XaiTTS'
+      additionalProperties: false
+      type: object
+      required:
+      - language
+      - voice
+      title: LanguageVoiceSchema
+      description: 'One voice per language: replies written in `language` are spoken with `voice`.'
     LedgerBalanceResponse:
       properties:
         id:
@@ -32396,6 +32489,10 @@ components:
         preemptiveGeneration:
           type: boolean
           default: false
+        preemptiveTts:
+          type: boolean
+          description: Also start the voice for a reply generated preemptively, before the caller's turn is confirmed. Only applies when `preemptiveGeneration` is on; pipeline only. Can save the voice's start-up time on a turn, at the cost of voice usage for early replies that are thrown away when the caller keeps talking.
+          default: false
         maxToolSteps:
           type: integer
           maximum: 10
@@ -32845,6 +32942,13 @@ components:
                 xai-stt: '#/components/schemas/XaiSTT'
           - type: 'null'
           description: Optional fallback STT transcriber. When the primary STT provider fails mid-call, the agent transcribes subsequent audio with this provider for the rest of the session. **Custom-mode only** and **pipeline-only**. Credentials resolve from the same org BYO key pool as the primary.
+        languageVoices:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/LanguageVoiceSchema'
+            type: array
+          - type: 'null'
+          description: Optional voice per reply language. Each reply is spoken by the voice of the language it is written in; replies in any other language use `voice`. The language is detected from the reply text, so no tool or transfer is needed to switch. **Custom-mode only** and **pipeline-only**. Credentials resolve from the same org key pool as `voice`.
       additionalProperties: false
       type: object
       required:
@@ -32969,6 +33073,10 @@ components:
           default: true
         preemptiveGeneration:
           type: boolean
+          default: false
+        preemptiveTts:
+          type: boolean
+          description: Also start the voice for a reply generated preemptively, before the caller's turn is confirmed. Only applies when `preemptiveGeneration` is on; pipeline only. Can save the voice's start-up time on a turn, at the cost of voice usage for early replies that are thrown away when the caller keeps talking.
           default: false
         maxToolSteps:
           type: integer
@@ -33419,6 +33527,13 @@ components:
                 xai-stt: '#/components/schemas/XaiSTT'
           - type: 'null'
           description: Optional fallback STT transcriber. When the primary STT provider fails mid-call, the agent transcribes subsequent audio with this provider for the rest of the session. **Custom-mode only** and **pipeline-only**. Credentials resolve from the same org BYO key pool as the primary.
+        languageVoices:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/LanguageVoiceSchema'
+            type: array
+          - type: 'null'
+          description: Optional voice per reply language. Each reply is spoken by the voice of the language it is written in; replies in any other language use `voice`. The language is detected from the reply text, so no tool or transfer is needed to switch. **Custom-mode only** and **pipeline-only**. Credentials resolve from the same org key pool as `voice`.
       additionalProperties: false
       type: object
       required:
@@ -33537,6 +33652,9 @@ components:
           type: boolean
           default: true
         preemptiveGeneration:
+          type: boolean
+          default: false
+        preemptiveTts:
           type: boolean
           default: false
         maxToolSteps:
@@ -33993,6 +34111,13 @@ components:
                 xai-stt: '#/components/schemas/XaiSTT'
           - type: 'null'
           description: Configured fallback STT transcriber. `None` means no STT failover configured.
+        languageVoices:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/LanguageVoiceSchema'
+            type: array
+          - type: 'null'
+          description: Configured per-language voices. `None` means every reply uses `voice`.
       type: object
       required:
       - id
@@ -34761,6 +34886,10 @@ components:
         preemptiveGeneration:
           type: boolean
           default: false
+        preemptiveTts:
+          type: boolean
+          description: Also start the voice for a reply generated preemptively, before the caller's turn is confirmed. Only applies when `preemptiveGeneration` is on; pipeline only. Can save the voice's start-up time on a turn, at the cost of voice usage for early replies that are thrown away when the caller keeps talking.
+          default: false
         maxToolSteps:
           type: integer
           maximum: 10
@@ -35045,6 +35174,10 @@ components:
         preemptiveGeneration:
           type: boolean
           default: false
+        preemptiveTts:
+          type: boolean
+          description: Also start the voice for a reply generated preemptively, before the caller's turn is confirmed. Only applies when `preemptiveGeneration` is on; pipeline only. Can save the voice's start-up time on a turn, at the cost of voice usage for early replies that are thrown away when the caller keeps talking.
+          default: false
         maxToolSteps:
           type: integer
           maximum: 10
@@ -35322,6 +35455,9 @@ components:
           type: boolean
           default: true
         preemptiveGeneration:
+          type: boolean
+          default: false
+        preemptiveTts:
           type: boolean
           default: false
         maxToolSteps:
