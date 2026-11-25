@@ -19053,6 +19053,13 @@ components:
             type: array
           - type: 'null'
           description: Replace the per-language voices. Pass the full list to set or replace; `null` or `[]` clears; omit to leave unchanged. **Custom-mode only** and **pipeline-only**.
+        pronunciations:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/PronunciationEntrySchema'
+            type: array
+          - type: 'null'
+          description: Replace the pronunciation dictionary. Pass the full list to set or replace; `null` or `[]` clears; omit to leave unchanged. **Pipeline-only**.
         tools:
           anyOf:
           - items:
@@ -25710,6 +25717,13 @@ components:
           maximum: 10
           minimum: 0.5
           default: 3
+        mode:
+          type: string
+          enum:
+          - fixed
+          - dynamic
+          description: '`fixed` waits `waitSeconds` after the caller stops. `dynamic` learns how long this caller pauses and waits longer for them, never less than `waitSeconds` and never more than `maxDelay`. Pipeline only.'
+          default: fixed
       type: object
       title: EndpointingConfigSchema
     ErrorEnvelope:
@@ -30850,7 +30864,9 @@ components:
         model:
           anyOf:
           - type: string
-            const: gpt-live-1
+            enum:
+            - gpt-live-1
+            - gpt-live-1.1
           - type: 'null'
         voice:
           anyOf:
@@ -32949,6 +32965,13 @@ components:
             type: array
           - type: 'null'
           description: Optional voice per reply language. Each reply is spoken by the voice of the language it is written in; replies in any other language use `voice`. The language is detected from the reply text, so no tool or transfer is needed to switch. **Custom-mode only** and **pipeline-only**. Credentials resolve from the same org key pool as `voice`.
+        pronunciations:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/PronunciationEntrySchema'
+            type: array
+          - type: 'null'
+          description: 'Optional pronunciation dictionary: words or phrases the voice says differently, e.g. `AG` → `A G`. Applied to the spoken text only; the transcript, the model''s history and tool arguments keep the original. Whole words, ignoring case. **Pipeline-only** (refused for realtime).'
       additionalProperties: false
       type: object
       required:
@@ -33534,6 +33557,13 @@ components:
             type: array
           - type: 'null'
           description: Optional voice per reply language. Each reply is spoken by the voice of the language it is written in; replies in any other language use `voice`. The language is detected from the reply text, so no tool or transfer is needed to switch. **Custom-mode only** and **pipeline-only**. Credentials resolve from the same org key pool as `voice`.
+        pronunciations:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/PronunciationEntrySchema'
+            type: array
+          - type: 'null'
+          description: 'Optional pronunciation dictionary: words or phrases the voice says differently, e.g. `AG` → `A G`. Applied to the spoken text only; the transcript, the model''s history and tool arguments keep the original. Whole words, ignoring case. **Pipeline-only** (refused for realtime).'
       additionalProperties: false
       type: object
       required:
@@ -34118,6 +34148,13 @@ components:
             type: array
           - type: 'null'
           description: Configured per-language voices. `None` means every reply uses `voice`.
+        pronunciations:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/PronunciationEntrySchema'
+            type: array
+          - type: 'null'
+          description: Configured pronunciation dictionary. `None` means none.
       type: object
       required:
       - id
@@ -34631,6 +34668,29 @@ components:
       - updatedAt
       title: PricingPolicyResponse
       description: The currently-applied billing config for one Tenant or Organization.
+    PronunciationEntrySchema:
+      properties:
+        find:
+          type: string
+          maxLength: 100
+          minLength: 1
+          description: Word or phrase to replace, matched as whole words and ignoring case, e.g. `AG` matches `AG` and `ag` but not `again`.
+        say:
+          type: string
+          maxLength: 200
+          description: What the voice says instead. Empty means the voice skips the word.
+          default: ''
+        language:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Optional two-letter language code (ISO 639-1), e.g. `de`. With `languageVoices`, the entry applies only to replies in this language; without `languageVoices`, every entry applies to every reply.
+      additionalProperties: false
+      type: object
+      required:
+      - find
+      title: PronunciationEntrySchema
+      description: 'One pronunciation entry: the voice says `say` where the reply has `find`.'
     QuickReplyButton:
       properties:
         type:
@@ -38867,6 +38927,10 @@ components:
         useTtsAlignedTranscript:
           type: boolean
           default: false
+        hideAudioTags:
+          type: boolean
+          description: Remove bracketed voice directions such as `[warm]` or `[short pause]` from the call messages, transcript, end-of-call webhook and chat replies. The voice still receives them. Brackets that contain a digit (`[1]`, `[REF-12]`) are kept.
+          default: false
       type: object
       title: TextProcessingSchema
     TierRealtimeOverrides:
@@ -38927,6 +38991,80 @@ components:
         voice-activity detector. Bounds match the provider''s documented
 
         ranges.'
+    TimelineConsult:
+      properties:
+        aiSpeaksFirst:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Whether the assistant was set to start talking when the line answered. `false` = it waited for the colleague to speak first.
+        dialedAt:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: When the colleague was dialled.
+        answeredAt:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: When the answer was detected. The line is checked every 2 seconds, so this can be up to 2 seconds after the actual pickup (and after `lineFirstSpeechAt`). Absent if it never answered.
+        lineFirstSpeechAt:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: First speech detected from the colleague's side — a person, a mailbox greeting or a phone system announcement.
+        lineSpeechSeconds:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: Total seconds of speech detected from the colleague's side.
+        aiFirstSpeechAt:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: When the assistant first spoke to the colleague.
+        aiSpeechSeconds:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: Total seconds the assistant spoke to the colleague.
+        refusedDecisions:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: Decisions held back because the colleague had not spoken yet or had not heard the briefing (only when the colleague speaks first).
+        outcome:
+          anyOf:
+          - type: string
+            enum:
+            - connected
+            - declined
+            - voicemail
+            - colleague_hung_up
+            - no_decision
+            - not_answered
+            - dial_failed
+            - caller_hung_up
+            - call_ended
+            - error
+          - type: 'null'
+          description: How it ended. Absent when the call ended before an outcome was known.
+        endedAt:
+          anyOf:
+          - type: number
+          - type: 'null'
+          description: When the outcome was recorded.
+      additionalProperties: true
+      type: object
+      title: TimelineConsult
+      description: 'The colleague''s side of a warm transfer or live escalation.
+
+
+        Present on `handoff` entries of kind `phone` / `sip` (warm mode) and
+
+        `live_escalate` once the colleague was dialled. Times are Unix epoch
+
+        seconds. Holds no conversation content.'
     TimelineErrorEvent:
       properties:
         timestamp:
@@ -39120,6 +39258,11 @@ components:
           anyOf:
           - type: string
           - type: 'null'
+        consult:
+          anyOf:
+          - $ref: '#/components/schemas/TimelineConsult'
+          - type: 'null'
+          description: 'What happened on the colleague''s side of a warm transfer or live escalation: when the line answered, who spoke and how it ended. Absent on other transfers and on calls recorded before it existed.'
       additionalProperties: true
       type: object
       title: TimelineHandoffEvent
