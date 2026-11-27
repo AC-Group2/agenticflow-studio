@@ -1236,7 +1236,7 @@ paths:
       tags:
       - Assistant
       summary: Update Assistant
-      description: $16f
+      description: $170
       operationId: updateAssistant
       parameters:
       - name: assistantId
@@ -4847,7 +4847,7 @@ paths:
       tags:
       - Chat
       summary: Send message
-      description: $170
+      description: $171
       operationId: sendChatMessage
       requestBody:
         content:
@@ -4995,7 +4995,7 @@ paths:
       tags:
       - Chat
       summary: Get Chat Session Log Archive
-      description: $171
+      description: $172
       operationId: getChatSessionLogs
       parameters:
       - name: sessionId
@@ -6139,7 +6139,7 @@ paths:
       tags:
       - Audio Asset
       summary: Delete an Audio Asset
-      description: $172
+      description: $173
       operationId: deleteAudioAsset
       parameters:
       - name: assetId
@@ -11150,6 +11150,56 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /widget/admin/widgets/{widget_id}/rotate-identity-token-secret:
+    post:
+      tags:
+      - Widget - Admin
+      summary: Generate or rotate the identity token secret
+      description: 'First call generates the secret that signs visitor identity tokens
+
+        (until then tokens are refused); later calls rotate it, keeping the
+
+        previous one valid for 7 days. The new secret is shown only once.'
+      operationId: rotateWidgetIdentityTokenSecret
+      parameters:
+      - name: widget_id
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          title: Widget Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope_WidgetTokenSecretResponse_'
+        '401':
+          description: Authentication required — missing or invalid access token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Forbidden — caller lacks the required permission.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          description: Resource not found in the caller's workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /widget/admin/widgets/{widget_id}/rotate-webhook-secret:
     post:
       tags:
@@ -13404,7 +13454,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Download an invoice as a JSON package
-      description: $173
+      description: $174
       operationId: downloadBillingInvoiceJson
       parameters:
       - name: invoice_id
@@ -13453,7 +13503,7 @@ paths:
       tags:
       - Billing - Invoices
       summary: Confirm an offline payment landed → credits the MC ledger
-      description: $174
+      description: $175
       operationId: markInvoicePaid
       parameters:
       - name: invoice_id
@@ -14373,7 +14423,7 @@ paths:
       tags:
       - Billing - Plan Switch
       summary: Switch an organization's plan
-      description: $175
+      description: $176
       operationId: switchOrgPlan
       parameters:
       - name: org_id
@@ -15000,6 +15050,53 @@ components:
       - description
       title: AnonymizationRuleSchema
       description: One redaction rule — what to find + the literal label to replace it with.
+    AnsweringMachineDetectionSchema:
+      properties:
+        enabled:
+          type: boolean
+          description: Turns detection on for this assistant's outbound phone calls.
+          default: false
+        voicemailAction:
+          type: string
+          enum:
+          - hang-up
+          - leave-message
+          - continue
+          description: What happens when a voicemail box answers. `hang-up` ends the call without speaking. `leave-message` speaks `voicemailMessage` and then hangs up. `continue` lets the assistant carry on as it would without detection.
+          default: hang-up
+        voicemailMessage:
+          anyOf:
+          - type: string
+            maxLength: 1000
+          - type: 'null'
+          description: Required when `voicemailAction` is `leave-message`. Supports variables such as `{{customer.name}}`. Realtime assistants say it in their own words, close to the text.
+        unavailableAction:
+          type: string
+          enum:
+          - hang-up
+          - continue
+          description: What happens when an announcement says no message can be left, for example a full mailbox or a phone that is switched off.
+          default: hang-up
+        ivrAction:
+          type: string
+          enum:
+          - hang-up
+          - continue
+          description: What happens when an automated phone system answers, for example a menu, a call screening prompt or another company's virtual assistant. `continue` lets the assistant talk to it as usual.
+          default: continue
+        screeningAction:
+          anyOf:
+          - type: string
+            enum:
+            - first-message
+            - continue
+            - hang-up
+          - type: 'null'
+          description: 'What happens when the phone''s call screening answers and asks who is calling and why. `first-message` says the assistant''s first message and carries on, `continue` lets the assistant answer it as usual, `hang-up` ends the call. Unset: call screening is treated as an automated phone system (`ivrAction`, result `ivr`). Set: the result is `screening`.'
+      additionalProperties: false
+      type: object
+      title: AnsweringMachineDetectionSchema
+      description: Answering machine detection for outbound phone calls.
     Anthropic:
       properties:
         provider:
@@ -18363,6 +18460,18 @@ components:
           - type: integer
           - type: 'null'
           description: Final SIP response code of a never-answered outbound call's dial attempt (e.g. `486`, `404`, `503`). `null` when no final response arrived (`line-unreachable`, rang out) and on every other call. Only on the `end-of-call-report` event, and only when known.
+        amdResult:
+          anyOf:
+          - type: string
+            enum:
+            - human
+            - voicemail
+            - unavailable
+            - ivr
+            - screening
+            - uncertain
+          - type: 'null'
+          description: 'Outbound phone calls whose assistant has answering machine detection on: who answered. `human` a person; `voicemail` a voicemail box where a message can be left; `unavailable` an announcement that no message can be left (mailbox full, phone switched off, not reachable); `ivr` an automated phone system (menu, call screening, virtual assistant); `screening` the phone''s call screening, only when the assistant sets `screeningAction`; `uncertain` no clear answer (the call continued as with a person). Absent on every other call, and when the call ended before a result. Only on the `end-of-call-report` event.'
         durationSeconds:
           anyOf:
           - type: integer
@@ -18433,7 +18542,7 @@ components:
       required:
       - id
       title: AssistantCallObject
-      description: $176
+      description: $177
     AssistantDestination:
       properties:
         type:
@@ -18636,7 +18745,7 @@ components:
           description: Surface a routing error. The message is logged; the call falls back to the assigned assistant.
       type: object
       title: AssistantRequestResponse
-      description: $177
+      description: $178
     AssistantSortBy:
       type: string
       enum:
@@ -18716,6 +18825,7 @@ components:
             - $ref: '#/components/schemas/AwsBedrock'
             - $ref: '#/components/schemas/AzureOpenai'
             - $ref: '#/components/schemas/Baseten'
+            - $ref: '#/components/schemas/Bunyan'
             - $ref: '#/components/schemas/Cerebras'
             - $ref: '#/components/schemas/CustomOpenAI'
             - $ref: '#/components/schemas/DeepSeek'
@@ -18748,6 +18858,7 @@ components:
                 azure-openai-live: '#/components/schemas/AzureOpenAILive'
                 azure-openai-realtime: '#/components/schemas/AzureOpenAIRealtime'
                 baseten: '#/components/schemas/Baseten'
+                bunyan: '#/components/schemas/Bunyan'
                 cerebras: '#/components/schemas/Cerebras'
                 custom-openai: '#/components/schemas/CustomOpenAI'
                 deepseek: '#/components/schemas/DeepSeek'
@@ -18775,6 +18886,7 @@ components:
             - $ref: '#/components/schemas/AwsPolly'
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
+            - $ref: '#/components/schemas/BunyanTTS'
             - $ref: '#/components/schemas/Cartesia'
             - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
@@ -18810,6 +18922,7 @@ components:
                 aws-polly: '#/components/schemas/AwsPolly'
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
+                bunyan-tts: '#/components/schemas/BunyanTTS'
                 cartesia: '#/components/schemas/Cartesia'
                 clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -18846,6 +18959,7 @@ components:
             - $ref: '#/components/schemas/AwsTranscribe'
             - $ref: '#/components/schemas/AzureSTT'
             - $ref: '#/components/schemas/AzureOpenAISTT'
+            - $ref: '#/components/schemas/BunyanSTT'
             - $ref: '#/components/schemas/CartesiaSTT'
             - $ref: '#/components/schemas/DeepgramSTT'
             - $ref: '#/components/schemas/ElevenLabsSTT'
@@ -18869,6 +18983,7 @@ components:
                 aws-transcribe: '#/components/schemas/AwsTranscribe'
                 azure-openai-stt: '#/components/schemas/AzureOpenAISTT'
                 azure-stt: '#/components/schemas/AzureSTT'
+                bunyan-stt: '#/components/schemas/BunyanSTT'
                 cartesia-stt: '#/components/schemas/CartesiaSTT'
                 deepgram: '#/components/schemas/DeepgramSTT'
                 elevenlabs-stt: '#/components/schemas/ElevenLabsSTT'
@@ -18893,6 +19008,7 @@ components:
             - $ref: '#/components/schemas/AwsBedrock'
             - $ref: '#/components/schemas/AzureOpenai'
             - $ref: '#/components/schemas/Baseten'
+            - $ref: '#/components/schemas/Bunyan'
             - $ref: '#/components/schemas/Cerebras'
             - $ref: '#/components/schemas/CustomOpenAI'
             - $ref: '#/components/schemas/DeepSeek'
@@ -18912,6 +19028,7 @@ components:
                 aws-bedrock: '#/components/schemas/AwsBedrock'
                 azure-openai: '#/components/schemas/AzureOpenai'
                 baseten: '#/components/schemas/Baseten'
+                bunyan: '#/components/schemas/Bunyan'
                 cerebras: '#/components/schemas/Cerebras'
                 custom-openai: '#/components/schemas/CustomOpenAI'
                 deepseek: '#/components/schemas/DeepSeek'
@@ -18933,6 +19050,7 @@ components:
             - $ref: '#/components/schemas/AwsPolly'
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
+            - $ref: '#/components/schemas/BunyanTTS'
             - $ref: '#/components/schemas/Cartesia'
             - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
@@ -18968,6 +19086,7 @@ components:
                 aws-polly: '#/components/schemas/AwsPolly'
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
+                bunyan-tts: '#/components/schemas/BunyanTTS'
                 cartesia: '#/components/schemas/Cartesia'
                 clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -19005,6 +19124,7 @@ components:
             - $ref: '#/components/schemas/AwsTranscribe'
             - $ref: '#/components/schemas/AzureSTT'
             - $ref: '#/components/schemas/AzureOpenAISTT'
+            - $ref: '#/components/schemas/BunyanSTT'
             - $ref: '#/components/schemas/CartesiaSTT'
             - $ref: '#/components/schemas/DeepgramSTT'
             - $ref: '#/components/schemas/ElevenLabsSTT'
@@ -19028,6 +19148,7 @@ components:
                 aws-transcribe: '#/components/schemas/AwsTranscribe'
                 azure-openai-stt: '#/components/schemas/AzureOpenAISTT'
                 azure-stt: '#/components/schemas/AzureSTT'
+                bunyan-stt: '#/components/schemas/BunyanSTT'
                 cartesia-stt: '#/components/schemas/CartesiaSTT'
                 deepgram: '#/components/schemas/DeepgramSTT'
                 elevenlabs-stt: '#/components/schemas/ElevenLabsSTT'
@@ -20920,6 +21041,207 @@ components:
       - queuedRecipients
       title: BulkSendResponse
       description: Echo of the created batch + a few summary stats.
+    Bunyan:
+      properties:
+        provider:
+          type: string
+          const: bunyan
+        model:
+          type: string
+          enum:
+          - saudi/gpt-oss-120b
+          - saudi/glm-5.3-flash
+          - saudi/qwen3.6-27b
+        systemPrompt:
+          anyOf:
+          - type: string
+          - type: 'null'
+        temperature:
+          anyOf:
+          - type: number
+            maximum: 2
+            minimum: 0
+          - type: 'null'
+        maxTokens:
+          anyOf:
+          - type: integer
+            maximum: 16384
+            minimum: 1
+          - type: 'null'
+        topP:
+          anyOf:
+          - type: number
+            maximum: 1
+            minimum: 0
+          - type: 'null'
+        frequencyPenalty:
+          anyOf:
+          - type: number
+            maximum: 2
+            minimum: -2
+          - type: 'null'
+        presencePenalty:
+          anyOf:
+          - type: number
+            maximum: 2
+            minimum: -2
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - provider
+      - model
+      title: Bunyan
+      description: Bunyan LLM — a Saudi-region model, used with your own Bunyan key.
+    BunyanSTT:
+      properties:
+        provider:
+          type: string
+          const: bunyan-stt
+        model:
+          anyOf:
+          - type: string
+            enum:
+            - saudi/hamsa_stt
+            - saudi/whisper-large-v3
+          - type: 'null'
+        language:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - provider
+      title: BunyanSTT
+      description: Bunyan transcriber — Saudi-region speech recognition with your own Bunyan key.
+    BunyanTTS:
+      properties:
+        provider:
+          type: string
+          const: bunyan-tts
+        voiceId:
+          type: string
+          enum:
+          - fahad
+          - sultan
+          - abdullah
+          - noura
+          - lulwa
+          - aisha
+          - Eman
+          - Fahd
+          - Haneen
+          - Hiba
+          - Jasem
+          - Reem
+          - Saly
+          - Sami
+          - Tamer
+          - Alia
+          - Dima
+          - Fares
+          - Gannat
+          - Marwa
+          - Noor
+          - Razan
+          - Salma
+          - Yehya
+          - AbdelQader
+          - Akmal
+          - Hatem
+          - Kamla
+          - Mai
+          - Zeina
+          - Hind
+          - Magda
+          - Wael
+          - Eyad
+          - Hafsa
+          - Maha
+          - Mazen
+          - Nadya
+          - Ruba
+          - Jaber
+          - Noah
+          - Saleh
+          - Ahmed
+          - Ali
+          - Fouad
+          - Layla
+          - Mariam
+          - Nada
+          - Nermin
+          - Noura
+          - Nouran
+          - Othman
+          - Samir
+          - ASSY
+          - Hady
+          - Lana
+          - Nagib
+          - Omar
+          - Raghad
+          - Rania
+          - Renat
+          - Shaker
+          - Amjad
+          - Jana
+          - Khadija
+          - Layan
+          - Obida
+          - Rema
+          - Souad
+          - Talin
+          - Carla
+          - Fady
+          - Gassan
+          - Majd
+          - Marwan
+          - Nabil
+          - Sawsan
+          - Dalal
+          - Mais
+          - Ola
+          - Rami
+          - Yara
+          - Aml
+          - Edward
+          - Fatma
+          - Ghazal
+          - Khadiga
+          - Lyali
+          - Rihanna
+          - Tasneem
+          - Amir
+          - Salem
+          - Amanda
+          - Barbara
+          - Brian
+          - David
+          - Michael
+          - Oliver
+          - Robert
+          - Roger
+          - William
+        model:
+          anyOf:
+          - type: string
+            enum:
+            - saudi/orpheus-arabic-saudi
+            - saudi/hamsa-tts
+          - type: 'null'
+        language:
+          anyOf:
+          - type: string
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - provider
+      - voiceId
+      title: BunyanTTS
+      description: Bunyan voice — a Saudi-region voice, used with your own Bunyan key.
     ButtonsComponent:
       properties:
         type:
@@ -21233,7 +21555,7 @@ components:
           - additionalProperties: true
             type: object
           - type: 'null'
-          description: $178
+          description: $179
           examples:
           - firstMessage: Hallo! Hier ist die SpringSale-Hotline.
             model:
@@ -21527,7 +21849,7 @@ components:
       - role
       - content
       title: CallMessageSchema
-      description: $179
+      description: $17a
     CallMonitorURLs:
       properties:
         controlUrl:
@@ -21733,6 +22055,18 @@ components:
           - type: integer
           - type: 'null'
           description: Final SIP response code of a never-answered outbound call's dial attempt (e.g. `486`, `404`, `503`). `null` when no final response arrived (`line-unreachable`, rang out) and on every other call.
+        amdResult:
+          anyOf:
+          - type: string
+            enum:
+            - human
+            - voicemail
+            - unavailable
+            - ivr
+            - screening
+            - uncertain
+          - type: 'null'
+          description: 'Outbound phone calls whose assistant has answering machine detection on: who answered. `human` a person; `voicemail` a voicemail box where a message can be left; `unavailable` an announcement that no message can be left (mailbox full, phone switched off, not reachable); `ivr` an automated phone system (menu, call screening, virtual assistant); `screening` the phone''s call screening, only when the assistant sets `screeningAction`; `uncertain` no clear answer (the call continued as with a person). Absent on every other call, and when the call ended before a result.'
         conversationOccurred:
           anyOf:
           - type: boolean
@@ -24218,7 +24552,7 @@ components:
       - role
       - content
       title: ConversationMessage
-      description: $17a
+      description: $17b
     ConversationNote:
       properties:
         id:
@@ -25209,6 +25543,13 @@ components:
             type: string
           type: array
           description: Exact phrases that trigger an instant end call. Empty ⇒ LLM-only trigger.
+        assistantEndCallPhrases:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: Phrases that end the call when the ASSISTANT finishes a turn with one of them, once that line has been spoken — for example `have a lovely day, goodbye`. Matched against the end of the turn, word by word, ignoring case and punctuation; a turn that ends with a question or was interrupted never ends the call, and neither does one spoken while a tool, transfer or escalation is running. Empty (default) ⇒ off.
         function:
           anyOf:
           - $ref: '#/components/schemas/FunctionDefinition-Input'
@@ -25246,6 +25587,13 @@ components:
             type: string
           type: array
           description: Exact phrases that trigger an instant end call. Empty ⇒ LLM-only trigger.
+        assistantEndCallPhrases:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: Phrases that end the call when the ASSISTANT finishes a turn with one of them, once that line has been spoken — for example `have a lovely day, goodbye`. Matched against the end of the turn, word by word, ignoring case and punctuation; a turn that ends with a question or was interrupted never ends the call, and neither does one spoken while a tool, transfer or escalation is running. Empty (default) ⇒ off.
         function:
           anyOf:
           - $ref: '#/components/schemas/FunctionDefinition-Output'
@@ -25301,6 +25649,10 @@ components:
           items:
             type: string
           type: array
+        assistantEndCallPhrases:
+          items:
+            type: string
+          type: array
         function:
           anyOf:
           - $ref: '#/components/schemas/FunctionDefinition-Output'
@@ -25336,6 +25688,12 @@ components:
           const: endCall
           default: endCall
         endCallPhrases:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+        assistantEndCallPhrases:
           anyOf:
           - items:
               type: string
@@ -25433,7 +25791,7 @@ components:
       - role
       - message
       title: EndOfCallMessage
-      description: $17b
+      description: $17c
     EndOfCallReportEvent:
       properties:
         id:
@@ -27775,6 +28133,10 @@ components:
           - instruction
           description: How each entry in `messages` is delivered. `spoken` (default) treats the entry as the exact words the caller should hear. `instruction` treats it as guidance for the assistant, which then phrases the prompt itself in the conversation's language — use this when the entry describes what to do rather than what to say, otherwise it is read out to the caller verbatim.
           default: spoken
+        endCallAfterLastMessage:
+          type: boolean
+          description: 'End the call as soon as the last prompt (number `maxPromptCount`) has been spoken, unless the caller answers it. Off (default): the call ends after another `timeoutSeconds` of silence. Either way the call ends with reason `silence-timed-out`. Turn it on only when your last prompt is a goodbye, not a question.'
+          default: false
       type: object
       title: IdleConfigSchema
     InboundServerConfig:
@@ -28729,6 +29091,7 @@ components:
           - $ref: '#/components/schemas/AwsPolly'
           - $ref: '#/components/schemas/AzureTTS'
           - $ref: '#/components/schemas/AzureOpenAITTS'
+          - $ref: '#/components/schemas/BunyanTTS'
           - $ref: '#/components/schemas/Cartesia'
           - $ref: '#/components/schemas/ClevrLabs'
           - $ref: '#/components/schemas/DeepgramTTS'
@@ -28765,6 +29128,7 @@ components:
               aws-polly: '#/components/schemas/AwsPolly'
               azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
               azure-tts: '#/components/schemas/AzureTTS'
+              bunyan-tts: '#/components/schemas/BunyanTTS'
               cartesia: '#/components/schemas/Cartesia'
               clevrlabs: '#/components/schemas/ClevrLabs'
               deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -32648,6 +33012,7 @@ components:
             - $ref: '#/components/schemas/AwsBedrock'
             - $ref: '#/components/schemas/AzureOpenai'
             - $ref: '#/components/schemas/Baseten'
+            - $ref: '#/components/schemas/Bunyan'
             - $ref: '#/components/schemas/Cerebras'
             - $ref: '#/components/schemas/CustomOpenAI'
             - $ref: '#/components/schemas/DeepSeek'
@@ -32667,6 +33032,7 @@ components:
                 aws-bedrock: '#/components/schemas/AwsBedrock'
                 azure-openai: '#/components/schemas/AzureOpenai'
                 baseten: '#/components/schemas/Baseten'
+                bunyan: '#/components/schemas/Bunyan'
                 cerebras: '#/components/schemas/Cerebras'
                 custom-openai: '#/components/schemas/CustomOpenAI'
                 deepseek: '#/components/schemas/DeepSeek'
@@ -32687,6 +33053,7 @@ components:
             - $ref: '#/components/schemas/AwsPolly'
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
+            - $ref: '#/components/schemas/BunyanTTS'
             - $ref: '#/components/schemas/Cartesia'
             - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
@@ -32722,6 +33089,7 @@ components:
                 aws-polly: '#/components/schemas/AwsPolly'
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
+                bunyan-tts: '#/components/schemas/BunyanTTS'
                 cartesia: '#/components/schemas/Cartesia'
                 clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -32758,6 +33126,7 @@ components:
             - $ref: '#/components/schemas/AwsTranscribe'
             - $ref: '#/components/schemas/AzureSTT'
             - $ref: '#/components/schemas/AzureOpenAISTT'
+            - $ref: '#/components/schemas/BunyanSTT'
             - $ref: '#/components/schemas/CartesiaSTT'
             - $ref: '#/components/schemas/DeepgramSTT'
             - $ref: '#/components/schemas/ElevenLabsSTT'
@@ -32781,6 +33150,7 @@ components:
                 aws-transcribe: '#/components/schemas/AwsTranscribe'
                 azure-openai-stt: '#/components/schemas/AzureOpenAISTT'
                 azure-stt: '#/components/schemas/AzureSTT'
+                bunyan-stt: '#/components/schemas/BunyanSTT'
                 cartesia-stt: '#/components/schemas/CartesiaSTT'
                 deepgram: '#/components/schemas/DeepgramSTT'
                 elevenlabs-stt: '#/components/schemas/ElevenLabsSTT'
@@ -32805,6 +33175,7 @@ components:
             - $ref: '#/components/schemas/AwsBedrock'
             - $ref: '#/components/schemas/AzureOpenai'
             - $ref: '#/components/schemas/Baseten'
+            - $ref: '#/components/schemas/Bunyan'
             - $ref: '#/components/schemas/Cerebras'
             - $ref: '#/components/schemas/CustomOpenAI'
             - $ref: '#/components/schemas/DeepSeek'
@@ -32824,6 +33195,7 @@ components:
                 aws-bedrock: '#/components/schemas/AwsBedrock'
                 azure-openai: '#/components/schemas/AzureOpenai'
                 baseten: '#/components/schemas/Baseten'
+                bunyan: '#/components/schemas/Bunyan'
                 cerebras: '#/components/schemas/Cerebras'
                 custom-openai: '#/components/schemas/CustomOpenAI'
                 deepseek: '#/components/schemas/DeepSeek'
@@ -32845,6 +33217,7 @@ components:
             - $ref: '#/components/schemas/AwsPolly'
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
+            - $ref: '#/components/schemas/BunyanTTS'
             - $ref: '#/components/schemas/Cartesia'
             - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
@@ -32880,6 +33253,7 @@ components:
                 aws-polly: '#/components/schemas/AwsPolly'
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
+                bunyan-tts: '#/components/schemas/BunyanTTS'
                 cartesia: '#/components/schemas/Cartesia'
                 clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -32917,6 +33291,7 @@ components:
             - $ref: '#/components/schemas/AwsTranscribe'
             - $ref: '#/components/schemas/AzureSTT'
             - $ref: '#/components/schemas/AzureOpenAISTT'
+            - $ref: '#/components/schemas/BunyanSTT'
             - $ref: '#/components/schemas/CartesiaSTT'
             - $ref: '#/components/schemas/DeepgramSTT'
             - $ref: '#/components/schemas/ElevenLabsSTT'
@@ -32940,6 +33315,7 @@ components:
                 aws-transcribe: '#/components/schemas/AwsTranscribe'
                 azure-openai-stt: '#/components/schemas/AzureOpenAISTT'
                 azure-stt: '#/components/schemas/AzureSTT'
+                bunyan-stt: '#/components/schemas/BunyanSTT'
                 cartesia-stt: '#/components/schemas/CartesiaSTT'
                 deepgram: '#/components/schemas/DeepgramSTT'
                 elevenlabs-stt: '#/components/schemas/ElevenLabsSTT'
@@ -33240,6 +33616,7 @@ components:
             - $ref: '#/components/schemas/AwsBedrock'
             - $ref: '#/components/schemas/AzureOpenai'
             - $ref: '#/components/schemas/Baseten'
+            - $ref: '#/components/schemas/Bunyan'
             - $ref: '#/components/schemas/Cerebras'
             - $ref: '#/components/schemas/CustomOpenAI'
             - $ref: '#/components/schemas/DeepSeek'
@@ -33259,6 +33636,7 @@ components:
                 aws-bedrock: '#/components/schemas/AwsBedrock'
                 azure-openai: '#/components/schemas/AzureOpenai'
                 baseten: '#/components/schemas/Baseten'
+                bunyan: '#/components/schemas/Bunyan'
                 cerebras: '#/components/schemas/Cerebras'
                 custom-openai: '#/components/schemas/CustomOpenAI'
                 deepseek: '#/components/schemas/DeepSeek'
@@ -33279,6 +33657,7 @@ components:
             - $ref: '#/components/schemas/AwsPolly'
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
+            - $ref: '#/components/schemas/BunyanTTS'
             - $ref: '#/components/schemas/Cartesia'
             - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
@@ -33314,6 +33693,7 @@ components:
                 aws-polly: '#/components/schemas/AwsPolly'
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
+                bunyan-tts: '#/components/schemas/BunyanTTS'
                 cartesia: '#/components/schemas/Cartesia'
                 clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -33350,6 +33730,7 @@ components:
             - $ref: '#/components/schemas/AwsTranscribe'
             - $ref: '#/components/schemas/AzureSTT'
             - $ref: '#/components/schemas/AzureOpenAISTT'
+            - $ref: '#/components/schemas/BunyanSTT'
             - $ref: '#/components/schemas/CartesiaSTT'
             - $ref: '#/components/schemas/DeepgramSTT'
             - $ref: '#/components/schemas/ElevenLabsSTT'
@@ -33373,6 +33754,7 @@ components:
                 aws-transcribe: '#/components/schemas/AwsTranscribe'
                 azure-openai-stt: '#/components/schemas/AzureOpenAISTT'
                 azure-stt: '#/components/schemas/AzureSTT'
+                bunyan-stt: '#/components/schemas/BunyanSTT'
                 cartesia-stt: '#/components/schemas/CartesiaSTT'
                 deepgram: '#/components/schemas/DeepgramSTT'
                 elevenlabs-stt: '#/components/schemas/ElevenLabsSTT'
@@ -33397,6 +33779,7 @@ components:
             - $ref: '#/components/schemas/AwsBedrock'
             - $ref: '#/components/schemas/AzureOpenai'
             - $ref: '#/components/schemas/Baseten'
+            - $ref: '#/components/schemas/Bunyan'
             - $ref: '#/components/schemas/Cerebras'
             - $ref: '#/components/schemas/CustomOpenAI'
             - $ref: '#/components/schemas/DeepSeek'
@@ -33416,6 +33799,7 @@ components:
                 aws-bedrock: '#/components/schemas/AwsBedrock'
                 azure-openai: '#/components/schemas/AzureOpenai'
                 baseten: '#/components/schemas/Baseten'
+                bunyan: '#/components/schemas/Bunyan'
                 cerebras: '#/components/schemas/Cerebras'
                 custom-openai: '#/components/schemas/CustomOpenAI'
                 deepseek: '#/components/schemas/DeepSeek'
@@ -33437,6 +33821,7 @@ components:
             - $ref: '#/components/schemas/AwsPolly'
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
+            - $ref: '#/components/schemas/BunyanTTS'
             - $ref: '#/components/schemas/Cartesia'
             - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
@@ -33472,6 +33857,7 @@ components:
                 aws-polly: '#/components/schemas/AwsPolly'
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
+                bunyan-tts: '#/components/schemas/BunyanTTS'
                 cartesia: '#/components/schemas/Cartesia'
                 clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -33509,6 +33895,7 @@ components:
             - $ref: '#/components/schemas/AwsTranscribe'
             - $ref: '#/components/schemas/AzureSTT'
             - $ref: '#/components/schemas/AzureOpenAISTT'
+            - $ref: '#/components/schemas/BunyanSTT'
             - $ref: '#/components/schemas/CartesiaSTT'
             - $ref: '#/components/schemas/DeepgramSTT'
             - $ref: '#/components/schemas/ElevenLabsSTT'
@@ -33532,6 +33919,7 @@ components:
                 aws-transcribe: '#/components/schemas/AwsTranscribe'
                 azure-openai-stt: '#/components/schemas/AzureOpenAISTT'
                 azure-stt: '#/components/schemas/AzureSTT'
+                bunyan-stt: '#/components/schemas/BunyanSTT'
                 cartesia-stt: '#/components/schemas/CartesiaSTT'
                 deepgram: '#/components/schemas/DeepgramSTT'
                 elevenlabs-stt: '#/components/schemas/ElevenLabsSTT'
@@ -33831,6 +34219,7 @@ components:
             - $ref: '#/components/schemas/AwsBedrock'
             - $ref: '#/components/schemas/AzureOpenai'
             - $ref: '#/components/schemas/Baseten'
+            - $ref: '#/components/schemas/Bunyan'
             - $ref: '#/components/schemas/Cerebras'
             - $ref: '#/components/schemas/CustomOpenAI'
             - $ref: '#/components/schemas/DeepSeek'
@@ -33850,6 +34239,7 @@ components:
                 aws-bedrock: '#/components/schemas/AwsBedrock'
                 azure-openai: '#/components/schemas/AzureOpenai'
                 baseten: '#/components/schemas/Baseten'
+                bunyan: '#/components/schemas/Bunyan'
                 cerebras: '#/components/schemas/Cerebras'
                 custom-openai: '#/components/schemas/CustomOpenAI'
                 deepseek: '#/components/schemas/DeepSeek'
@@ -33870,6 +34260,7 @@ components:
             - $ref: '#/components/schemas/AwsPolly'
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
+            - $ref: '#/components/schemas/BunyanTTS'
             - $ref: '#/components/schemas/Cartesia'
             - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
@@ -33905,6 +34296,7 @@ components:
                 aws-polly: '#/components/schemas/AwsPolly'
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
+                bunyan-tts: '#/components/schemas/BunyanTTS'
                 cartesia: '#/components/schemas/Cartesia'
                 clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -33941,6 +34333,7 @@ components:
             - $ref: '#/components/schemas/AwsTranscribe'
             - $ref: '#/components/schemas/AzureSTT'
             - $ref: '#/components/schemas/AzureOpenAISTT'
+            - $ref: '#/components/schemas/BunyanSTT'
             - $ref: '#/components/schemas/CartesiaSTT'
             - $ref: '#/components/schemas/DeepgramSTT'
             - $ref: '#/components/schemas/ElevenLabsSTT'
@@ -33964,6 +34357,7 @@ components:
                 aws-transcribe: '#/components/schemas/AwsTranscribe'
                 azure-openai-stt: '#/components/schemas/AzureOpenAISTT'
                 azure-stt: '#/components/schemas/AzureSTT'
+                bunyan-stt: '#/components/schemas/BunyanSTT'
                 cartesia-stt: '#/components/schemas/CartesiaSTT'
                 deepgram: '#/components/schemas/DeepgramSTT'
                 elevenlabs-stt: '#/components/schemas/ElevenLabsSTT'
@@ -33988,6 +34382,7 @@ components:
             - $ref: '#/components/schemas/AwsBedrock'
             - $ref: '#/components/schemas/AzureOpenai'
             - $ref: '#/components/schemas/Baseten'
+            - $ref: '#/components/schemas/Bunyan'
             - $ref: '#/components/schemas/Cerebras'
             - $ref: '#/components/schemas/CustomOpenAI'
             - $ref: '#/components/schemas/DeepSeek'
@@ -34007,6 +34402,7 @@ components:
                 aws-bedrock: '#/components/schemas/AwsBedrock'
                 azure-openai: '#/components/schemas/AzureOpenai'
                 baseten: '#/components/schemas/Baseten'
+                bunyan: '#/components/schemas/Bunyan'
                 cerebras: '#/components/schemas/Cerebras'
                 custom-openai: '#/components/schemas/CustomOpenAI'
                 deepseek: '#/components/schemas/DeepSeek'
@@ -34028,6 +34424,7 @@ components:
             - $ref: '#/components/schemas/AwsPolly'
             - $ref: '#/components/schemas/AzureTTS'
             - $ref: '#/components/schemas/AzureOpenAITTS'
+            - $ref: '#/components/schemas/BunyanTTS'
             - $ref: '#/components/schemas/Cartesia'
             - $ref: '#/components/schemas/ClevrLabs'
             - $ref: '#/components/schemas/DeepgramTTS'
@@ -34063,6 +34460,7 @@ components:
                 aws-polly: '#/components/schemas/AwsPolly'
                 azure-openai-tts: '#/components/schemas/AzureOpenAITTS'
                 azure-tts: '#/components/schemas/AzureTTS'
+                bunyan-tts: '#/components/schemas/BunyanTTS'
                 cartesia: '#/components/schemas/Cartesia'
                 clevrlabs: '#/components/schemas/ClevrLabs'
                 deepgram-tts: '#/components/schemas/DeepgramTTS'
@@ -34100,6 +34498,7 @@ components:
             - $ref: '#/components/schemas/AwsTranscribe'
             - $ref: '#/components/schemas/AzureSTT'
             - $ref: '#/components/schemas/AzureOpenAISTT'
+            - $ref: '#/components/schemas/BunyanSTT'
             - $ref: '#/components/schemas/CartesiaSTT'
             - $ref: '#/components/schemas/DeepgramSTT'
             - $ref: '#/components/schemas/ElevenLabsSTT'
@@ -34123,6 +34522,7 @@ components:
                 aws-transcribe: '#/components/schemas/AwsTranscribe'
                 azure-openai-stt: '#/components/schemas/AzureOpenAISTT'
                 azure-stt: '#/components/schemas/AzureSTT'
+                bunyan-stt: '#/components/schemas/BunyanSTT'
                 cartesia-stt: '#/components/schemas/CartesiaSTT'
                 deepgram: '#/components/schemas/DeepgramSTT'
                 elevenlabs-stt: '#/components/schemas/ElevenLabsSTT'
@@ -38497,6 +38897,11 @@ components:
             minimum: 0
           - type: 'null'
           description: Only used when `ivrDetection` is on. Seconds of silence (caller and assistant both quiet) before the assistant speaks again on its own. `0` turns this off, so the assistant waits silently, for example when asked to hold; pressing keys in phone menus keeps working. Unset uses the platform default (5 seconds).
+        answeringMachineDetection:
+          anyOf:
+          - $ref: '#/components/schemas/AnsweringMachineDetectionSchema'
+          - type: 'null'
+          description: Outbound phone calls only. Listens to the first words after the call is answered and decides whether a person, a voicemail box, an announcement that no message can be left, or an automated phone system picked up. The assistant stays silent until it has decided. The result is stored on the call as `amdResult`.
       type: object
       title: TelephonySchema
     TemplateComponent:
@@ -39465,7 +39870,7 @@ components:
       - call
       - toolCalls
       title: ToolCallEvent
-      description: $17c
+      description: $17d
     ToolCallEventCallContext:
       properties:
         id:
@@ -41258,6 +41663,13 @@ components:
           - type: string
             maxLength: 64
           - type: 'null'
+        homeLogoSize:
+          anyOf:
+          - type: integer
+            maximum: 96
+            minimum: 36
+          - type: 'null'
+          description: Size in pixels of the round logo at the top of the Home screen (the initials when no workspace logo is set), 36 to 96. Default 36.
         welcomeTitle:
           anyOf:
           - type: string
@@ -41377,6 +41789,10 @@ components:
         voice:
           anyOf:
           - $ref: '#/components/schemas/WidgetVoiceConfig'
+          - type: 'null'
+        visitorData:
+          anyOf:
+          - $ref: '#/components/schemas/WidgetVisitorDataConfig'
           - type: 'null'
       additionalProperties: false
       type: object
@@ -41523,6 +41939,10 @@ components:
           type: integer
           description: How strongly the header background image shows, 0 (hidden) to 100 (full strength at the top). Default 65.
           default: 65
+        homeLogoSize:
+          type: integer
+          description: Size in pixels of the round logo at the top of the Home screen (the initials when no workspace logo is set), 36 to 96. Default 36.
+          default: 36
         welcomeTitle:
           type: string
         welcomeSubtitle:
@@ -41613,6 +42033,11 @@ components:
           type: string
         installSnippet:
           type: string
+        hasIdentityTokenSecret:
+          type: boolean
+          default: false
+        visitorData:
+          $ref: '#/components/schemas/WidgetVisitorDataConfig'
       type: object
       required:
       - id
@@ -41651,6 +42076,7 @@ components:
       - identityHmacSecret
       - incomingMessageWebhookSecret
       - installSnippet
+      - visitorData
       title: WidgetCreateResponse
       description: 'Body returned by POST /widget/admin/widgets — same shape as
 
@@ -42044,6 +42470,10 @@ components:
           type: integer
           description: How strongly the header background image shows, 0 (hidden) to 100 (full strength at the top). Default 65.
           default: 65
+        homeLogoSize:
+          type: integer
+          description: Size in pixels of the round logo at the top of the Home screen (the initials when no workspace logo is set), 36 to 96. Default 36.
+          default: 36
         welcomeTitle:
           type: string
         welcomeSubtitle:
@@ -42128,6 +42558,11 @@ components:
         updatedAt:
           type: string
           format: date-time
+        hasIdentityTokenSecret:
+          type: boolean
+          default: false
+        visitorData:
+          $ref: '#/components/schemas/WidgetVisitorDataConfig'
       type: object
       required:
       - id
@@ -42163,6 +42598,7 @@ components:
       - status
       - createdAt
       - updatedAt
+      - visitorData
       title: WidgetResponse
       description: 'Body returned by GET /widget/admin/widgets/{id} and list/PATCH.
 
@@ -42393,6 +42829,13 @@ components:
             minimum: 0
           - type: 'null'
           description: How strongly the header background image shows, 0 (hidden) to 100 (full strength at the top). Default 65.
+        homeLogoSize:
+          anyOf:
+          - type: integer
+            maximum: 96
+            minimum: 36
+          - type: 'null'
+          description: Size in pixels of the round logo at the top of the Home screen (the initials when no workspace logo is set), 36 to 96. Default 36.
         welcomeTitle:
           anyOf:
           - type: string
@@ -42519,6 +42962,10 @@ components:
             enum:
             - active
             - disabled
+          - type: 'null'
+        visitorData:
+          anyOf:
+          - $ref: '#/components/schemas/WidgetVisitorDataConfig'
           - type: 'null'
       additionalProperties: false
       type: object
@@ -42966,6 +43413,60 @@ components:
 
 
         Deliberately NOT validated: see `ServerConfig._no_internal_target`.'
+    ApiEnvelope_WidgetTokenSecretResponse_:
+      properties:
+        statusCode:
+          type: integer
+          description: HTTP status code (mirrors the response status).
+        data:
+          anyOf:
+          - $ref: '#/components/schemas/WidgetTokenSecretResponse'
+          - type: 'null'
+          description: Response payload.
+        message:
+          type: string
+          description: Human-readable status message.
+        success:
+          type: boolean
+          description: Always `true` for this envelope.
+          default: true
+      type: object
+      required:
+      - statusCode
+      - data
+      - message
+      title: ApiEnvelope[WidgetTokenSecretResponse]
+    WidgetTokenSecretResponse:
+      properties:
+        newSecret:
+          type: string
+        previousValidUntil:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - newSecret
+      title: WidgetTokenSecretResponse
+      description: 'Body returned by POST .../rotate-identity-token-secret.
+
+        New secret revealed ONCE; `previousValidUntil` is null on the first
+
+        generation (there was no previous secret).'
+    WidgetVisitorDataConfig:
+      properties:
+        collectContext:
+          type: boolean
+          default: false
+        collectLocation:
+          type: boolean
+          default: false
+      additionalProperties: false
+      type: object
+      title: WidgetVisitorDataConfig
+      description: "Opt-in visitor details the widget collects.\n\nBoth default `False` so every existing widget collects exactly\nwhat it did before. When on, the details reach the customer's\nwebhook (`visitor.context`) and widget voice calls (`visitor.*` /\n`page.*` variables).\n\n- `collectContext`: page address (origin + path only, never the\n  query string or fragment), referrer (same), browser language,\n  timezone and device (browser + OS from the User-Agent).\n- `collectLocation`: approximate country / city from the edge\n  network's location headers. The visitor's IP address is never\n  stored, whatever these say."
   securitySchemes:
     apiKeyAuth:
       type: apiKey

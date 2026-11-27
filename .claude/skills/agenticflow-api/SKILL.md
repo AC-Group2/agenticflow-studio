@@ -7,7 +7,7 @@ description: Use when calling, integrating, or debugging the AgenticFlow API (ap
 
 ## Overview
 
-Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **219 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-11-25).
+Complete reference for the AgenticFlow Voice AI Platform API — build AI agents for voice, telephony, messaging, and conversational interfaces. **220 REST endpoints + 17 outbound webhook events**, snapshotted from https://docs.agenticflow.studio/docs/api-reference (2026-11-27).
 
 - **Base URL:** `https://api.agenticflow.studio`
 - **Auth:** `X-Api-Key: <workspace key>` header on every request (create under Workspace → Settings → API Keys; keys are scoped to one workspace)
@@ -15,7 +15,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 
 ## Finding the right endpoint
 
-1. **[endpoints.md](endpoints.md)** — all 219 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page; fetch `https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) instead of the linked URL to get clean markdown via curl/WebFetch.
+1. **[endpoints.md](endpoints.md)** — all 220 endpoints as method/path/summary tables, grouped by category. Each summary links to its official doc page; fetch `https://docs.agenticflow.studio/llm-content/<page-path>` (same path, no `/docs` prefix) instead of the linked URL to get clean markdown via curl/WebFetch.
 2. **[openapi.yaml](openapi.yaml)** — the full OpenAPI 3.2 spec (request/response schemas, params, enums). Grep for the path, e.g. `grep -n "  /messaging/messages:" openapi.yaml`, then read that region.
 3. **Live doc index:** https://docs.agenticflow.studio/llms.txt lists every doc page including guides (messaging billing/quickstart, SIP trunk setup/troubleshooting, widget identity/installation, changelog).
 
@@ -35,7 +35,7 @@ Complete reference for the AgenticFlow Voice AI Platform API — build AI agents
 | Folders | 5 | Organize resources by `resourceType` |
 | Billing - Invoices | 4 | List/get invoices, download frozen JSON package, admin-only manual mark-paid |
 | Messaging | 76 | Channels + signing-secret rotation, onboarding (WhatsApp/Telegram/SMS/email), WhatsApp templates, sends (polymorphic), batches, conversations, contacts, quick replies, opt-outs/consent (TCPA), webhook-delivery debug, media |
-| Widget – Admin | 37 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
+| Widget – Admin | 38 | Chat widgets, help-center articles, news, CSAT surveys, audit webhooks, GDPR requests |
 | Audio Asset | 4 | CRUD for the org's background-sound / audio library, incl. built-in system sounds |
 | Management - Organizations | 8 | CRUD for organizations under a tenant + per-org API-key issue/list/revoke |
 | Management - Tenant Overview | 3 | Cross-org tenant status/usage rollups and workflow counts |
@@ -198,6 +198,15 @@ Both `GET /billing/{orgs,tenants}/{id}/usage` and the `/usage/live` sibling repo
 
 `413`/`415` come back for an oversized or wrong-mimetype request at step 1, before any presigned URL is issued.
 
+## Widget identity token secret — `POST /widget/admin/widgets/{widget_id}/rotate-identity-token-secret`
+
+Signs the visitor identity tokens used to authenticate end users into a widget session. Same call does two different things depending on state:
+
+- **First call** generates the secret — until it exists, identity tokens are refused outright.
+- **Later calls rotate** it: the previous secret keeps verifying tokens for **7 more days** (`previousValidUntil` in the response), then stops. There's no way to shorten or extend that grace window.
+- `newSecret` is returned **once**, in the response body only — it isn't retrievable afterwards, so store it immediately (mirrors the signing-secret pattern above, but with a 7-day overlap instead of an instant cutover).
+- `previousValidUntil` is `null` on the very first call (nothing to grace-period from).
+
 ## Conversation hand-off — `assignedToUserId` / `ignoreAssignment` (409 `conversation_assigned`)
 
 When a team member takes a conversation over in the dashboard, `ConversationResponse.assignedToUserId` (+ `assignedToName`) is set and the same field is carried on the `messaging-*` webhook events.
@@ -223,6 +232,7 @@ When a team member takes a conversation over in the dashboard, `ConversationResp
 - `PATCH .../templates/{template_id}` mit geändertem `name`/`language` senden, um ein Template umzubenennen — beide Felder sind unveränderlich; stattdessen ein neues Template anlegen. Ein Edit-Versuch während `pending` (in Review) scheitert mit 422.
 - `swapOutboundAniDnis` aktivieren und erwarten, dass es Inbound-Calls oder gespeicherte Call-Daten beeinflusst — es vertauscht nur SIP-Header bei Outbound-Calls; Inbound sowie Call-Records/Transcripts bleiben unverändert.
 - `POST .../signing-secret/rotate` aufrufen, ohne vorher alle Webhook-Consumer zu informieren — die alte Signatur wird sofort ungültig, es gibt kein Überlappungsfenster.
+- `POST .../rotate-identity-token-secret` mit dem Signing-Secret-Verhalten (sofortiger Cutover) verwechseln — hier bleibt das alte Secret noch 7 Tage gültig (`previousValidUntil`); `newSecret` wird trotzdem nur einmal in der Response zurückgegeben.
 - Bei WhatsApp-Onboarding ein 24h-API-Setup-Token (aus `manual`) in Produktion einsetzen statt eines langlebigen System-User-Tokens.
 - Einen `assetId` löschen, der nur per `POST /call overrides.backgroundSound` referenziert wird, und ein `409` erwarten — `referenceCount` zählt nur gespeicherte Assistants; der Delete geht durch und künftige Calls laufen stumm ohne Ambience.
 - Einen `null`-Workflow-/Usage-Count aus den Management-Endpunkten als `0` behandeln — `null` heißt "nicht ermittelbar" (Workflows nicht konfiguriert / Engine nicht erreichbar), nicht "keine Flows".

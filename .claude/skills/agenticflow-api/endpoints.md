@@ -235,7 +235,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 |---|---|---|
 | POST | `/messaging/media` | [Upload media](https://docs.agenticflow.studio/docs/api-reference/messaging/media/uploadMessagingMedia) |
 
-## Widget - Admin (37 endpoints)
+## Widget - Admin (38 endpoints)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -266,6 +266,7 @@ Full request/response schemas: grep `openapi.yaml` in this skill directory for t
 | DELETE | `/widget/admin/widgets/{widget_id}/news/{news_id}` | [Delete news post](https://docs.agenticflow.studio/docs/api-reference/widgets/news/widgetDeleteNews) |
 | PATCH | `/widget/admin/widgets/{widget_id}/news/{news_id}` | [Update a news post](https://docs.agenticflow.studio/docs/api-reference/widgets/news/widgetUpdateNews) |
 | POST | `/widget/admin/widgets/{widget_id}/rotate-identity-secret` | [Rotate identity secret](https://docs.agenticflow.studio/docs/api-reference/widgets/widgets/rotateWidgetIdentitySecret) |
+| POST | `/widget/admin/widgets/{widget_id}/rotate-identity-token-secret` | [Generate or rotate the identity token secret](https://docs.agenticflow.studio/docs/api-reference/widgets/widgets/rotateWidgetIdentityTokenSecret) |
 | POST | `/widget/admin/widgets/{widget_id}/rotate-webhook-secret` | [Rotate webhook secret](https://docs.agenticflow.studio/docs/api-reference/widgets/widgets/rotateWidgetWebhookSecret) |
 | GET | `/widget/admin/widgets/{widget_id}/surveys` | [List surveys](https://docs.agenticflow.studio/docs/api-reference/widgets/surveys/widgetListSurveys) |
 | POST | `/widget/admin/widgets/{widget_id}/surveys` | [Create survey](https://docs.agenticflow.studio/docs/api-reference/widgets/surveys/widgetCreateSurvey) |
